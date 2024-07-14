@@ -22,6 +22,9 @@ InjectTools.exe lsass.exe C:\Users\ASUS\Desktop\artifact_x64.dll
 ![Win11_DLL](https://github.com/whoami-juruo/InjectTools/raw/main/Win11_DLL.png)
 ![WinServer2012_DLL](https://github.com/whoami-juruo/InjectTools/raw/main/WinServer2012.png)
 
-## Warning
+## Anti-Virus?
 
-Anti-Virus? NO!! (后续会添加)
+Anti-Virus? NO!! (后续会添加)  不过也还是能过一些杀软。
+![ImportTable](https://github.com/whoami-juruo/InjectTools/raw/main/ImportTable.png)
+![ThreadBook](https://github.com/whoami-juruo/InjectTools/raw/main/ThreadBook.png)
+![VT](https://github.com/whoami-juruo/InjectTools/raw/main/VT.png)
