@@ -21,6 +21,7 @@ InjectTools.exe 你要注入的程序 DLL完整路径
 
 InjectTools.exe lsass.exe C:\Users\ASUS\Desktop\artifact_x64.dll
 
+![DLLInject](https://github.com/whoami-juruo/InjectTools/blob/main/img/DLLInject.png)
 
 ### 远程线程劫持
 example:  
