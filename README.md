@@ -81,4 +81,15 @@ ESET
 赛门铁克
 ![Symantec](https://github.com/whoami-juruo/InjectTools/blob/main/img/Symantec.png)
 
+## TODO 
+
+- [√] 普通动态调用静态过大部分杀软
+- [ ] 实现文件加解密操作
+- [ ] 反沙箱
+- [ ] NT动态调用
+- [ ] PEB寻址
+- [ ] 新的模块功能引入
+- [ ] 签名,信息
+- [ ] ....
+
 
