@@ -32,16 +32,33 @@ InjectTools.exe lsass.exe C:\Users\ASUS\Desktop\artifact_x64.bin
 
 ![RemoteThreadHiJacking](https://github.com/whoami-juruo/InjectTools/blob/main/img/RemoteThreadHiJacking.png)
 
-## Anti-Virus?
+### 映射注入
 
+此功能以本进程进行,一旦关闭此进程即可掉线 ！！ //第二个参数随便写
+
+example:
+
+InjectTools.exe  WhateverYouWant   C:\Users\ASUS\Desktop\artifact_x64.bin
+
+![MappingInject](https://github.com/whoami-juruo/InjectTools/blob/main/img/MappingInject.png)
 
 <!-- Blank -->
 <!-- Blank -->
+
+### Anti-Virus
+
+## SandBox
+
 微步
 ![ThreatBook](https://github.com/whoami-juruo/InjectTools/blob/main/img/ThreatBook.png)
 
 VT
 ![VT](https://github.com/whoami-juruo/InjectTools/blob/main/img/VT.png)
+
+奇安信
+![奇安信沙箱](https://github.com/whoami-juruo/InjectTools/blob/main/img/奇安信沙箱.png)
+
+## AV
 
 火绒
 ![火绒](https://github.com/whoami-juruo/InjectTools/blob/main/img/火绒.png)
@@ -54,6 +71,9 @@ Windows Defender
 
 麦咖啡
 ![McAfee](https://github.com/whoami-juruo/InjectTools/blob/main/img/McAfee.png)
+
+ESET
+![ESET](https://github.com/whoami-juruo/InjectTools/blob/main/img/ESET.png)
 
 卡巴斯基
 ![Kaspersky](https://github.com/whoami-juruo/InjectTools/blob/main/img/Kaspersky.png)
