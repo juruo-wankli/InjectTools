@@ -6,7 +6,15 @@ typedef HANDLE(WINAPI* Fn_CreateFileMappingW)(
 		_In_     DWORD dwMaximumSizeLow,
 		_In_opt_ LPCWSTR lpName
 		);
-
+typedef PVOID(*Fn_MapViewOfFile2)(
+	_In_ HANDLE FileMappingHandle,
+	_In_ HANDLE ProcessHandle,
+	_In_ ULONG64 Offset,
+	_In_opt_ PVOID BaseAddress,
+	_In_ SIZE_T ViewSize,
+	_In_ ULONG AllocationType,
+	_In_ ULONG PageProtection
+	);
 typedef DWORD(WINAPI* Fn_ResumeThread)(
 		_In_ HANDLE hThread
 		);
@@ -19,14 +27,6 @@ typedef	BOOL(WINAPI* Fn_SetThreadContext)(
 		_In_ CONST CONTEXT* lpContext
 		);
 
-typedef HANDLE (WINAPI *Fn_CreateThread)(
-	_In_opt_ LPSECURITY_ATTRIBUTES lpThreadAttributes,
-	_In_ SIZE_T dwStackSize,
-	_In_ LPTHREAD_START_ROUTINE lpStartAddress,
-	_In_opt_ __drv_aliasesMem LPVOID lpParameter,
-	_In_ DWORD dwCreationFlags,
-	_Out_opt_ LPDWORD lpThreadId
-);
 
 typedef	BOOL(WINAPI* Fn_GetThreadContext)(
 		_In_ HANDLE hThread,
