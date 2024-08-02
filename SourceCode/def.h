@@ -6,6 +6,18 @@ typedef HANDLE(WINAPI* Fn_CreateFileMappingW)(
 		_In_     DWORD dwMaximumSizeLow,
 		_In_opt_ LPCWSTR lpName
 		);
+
+typedef HMODULE (WINAPI *Fn_LoadLibraryW)(
+	_In_ LPCWSTR lpLibFileName
+);
+typedef BOOL (WINAPI *Fn_VirtualProtectEx)(
+	_In_ HANDLE hProcess,
+	_In_ LPVOID lpAddress,
+	_In_ SIZE_T dwSize,
+	_In_ DWORD flNewProtect,
+	_Out_ PDWORD lpflOldProtect
+);
+
 typedef PVOID(*Fn_MapViewOfFile2)(
 	_In_ HANDLE FileMappingHandle,
 	_In_ HANDLE ProcessHandle,

